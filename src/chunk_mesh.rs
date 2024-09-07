@@ -211,3 +211,22 @@ pub fn generate_mesh() -> Mesh {
     .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
     .with_inserted_indices(Indices::U32(indices))
 }
+
+// generate a vec of indices
+// assumes vertices are made of quads, and counter clockwise ordered
+#[inline]
+pub fn generate_indices(vertex_count: usize) -> Vec<u32> {
+    let indices_count = vertex_count / 4;
+    let mut indices = Vec::with_capacity(indices_count);
+
+    for vert_index in 0..indices_count {
+        let vert_index = vert_index as u32 * 4u32;
+        indices.push(vert_index);
+        indices.push(vert_index + 1);
+        indices.push(vert_index + 2);
+        indices.push(vert_index);
+        indices.push(vert_index + 2);
+        indices.push(vert_index + 3);
+    }
+    indices
+}
