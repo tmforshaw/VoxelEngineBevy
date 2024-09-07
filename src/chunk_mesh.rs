@@ -1,4 +1,4 @@
-use crate::{vertex::VertexU32, world::WorldPos};
+use crate::{positions::WorldPos, vertex::VertexU32};
 
 #[repr(u8)]
 pub enum Direction {

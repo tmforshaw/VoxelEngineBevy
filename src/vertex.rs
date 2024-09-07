@@ -1,4 +1,4 @@
-use crate::{voxel::VoxelType, world::WorldPos};
+use crate::{positions::WorldPos, voxel::VoxelType};
 
 pub struct Vertex {
     pos: WorldPos,

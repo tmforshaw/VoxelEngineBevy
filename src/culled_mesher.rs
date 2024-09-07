@@ -1,9 +1,9 @@
 use crate::{
     chunk::CHUNK_SIZE,
     chunk_mesh::{ChunkMesh, Direction, Quad},
+    positions::WorldPos,
     vertex::Vertex,
     voxel::{VoxelPos, VoxelType},
-    world::WorldPos,
 };
 
 fn push_face(mesh: &mut ChunkMesh, dir: Direction, vertex_pos: WorldPos, voxel_type: VoxelType) {

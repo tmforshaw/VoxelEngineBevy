@@ -10,6 +10,7 @@ use world::World;
 pub mod chunk;
 pub mod chunk_mesh;
 pub mod culled_mesher;
+pub mod positions;
 pub mod vertex;
 pub mod voxel;
 pub mod world;
