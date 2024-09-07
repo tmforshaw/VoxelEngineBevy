@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy_flycam::prelude::*;
-use bevy_inspector_egui::quick::{AssetInspectorPlugin, WorldInspectorPlugin};
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_screen_diagnostics::{
     ScreenDiagnosticsPlugin, ScreenEntityDiagnosticsPlugin, ScreenFrameDiagnosticsPlugin,
 };
@@ -84,10 +84,6 @@ fn main() {
             (-1, 0, 0).into(),
             (16, 0, 0).into(),
         ]))
-        .add_systems(PostStartup, (World::generate, test_func))
+        .add_systems(PostStartup, World::generate)
         .run();
-}
-
-fn test_func(world: Res<World>) {
-    // println!("{:?}", world.chunks);
 }
