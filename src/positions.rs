@@ -1,6 +1,6 @@
 // World Position Struct (For any voxel in the world)
 
-use std::ops::{Add, Sub};
+use std::ops::{Add, AddAssign, Sub, SubAssign};
 
 use crate::chunk::CHUNK_SIZE;
 
@@ -71,6 +71,14 @@ impl ChunkPos {
         Self { x, y, z }
     }
 
+    pub fn splat(val: i32) -> Self {
+        Self {
+            x: val,
+            y: val,
+            z: val,
+        }
+    }
+
     pub fn from_tuple(pos: (i32, i32, i32)) -> Self {
         Self {
             x: pos.0,
@@ -81,6 +89,10 @@ impl ChunkPos {
 
     pub fn to_tuple(self) -> (i32, i32, i32) {
         (self.x, self.y, self.z)
+    }
+
+    pub fn distance_squared(&self, rhs: ChunkPos) -> u32 {
+        ((self.x - rhs.x).pow(2) + (self.y - rhs.y).pow(2) + (self.z - rhs.z).pow(2)) as u32
     }
 }
 
@@ -104,11 +116,27 @@ impl Add<ChunkPos> for ChunkPos {
     }
 }
 
+impl AddAssign<ChunkPos> for ChunkPos {
+    fn add_assign(&mut self, rhs: ChunkPos) {
+        self.x += rhs.x;
+        self.y += rhs.y;
+        self.z += rhs.z;
+    }
+}
+
 impl Sub<ChunkPos> for ChunkPos {
     type Output = ChunkPos;
 
     fn sub(self, rhs: ChunkPos) -> Self::Output {
         (self.x - rhs.x, self.y - rhs.y, self.z - rhs.z).into()
+    }
+}
+
+impl SubAssign<ChunkPos> for ChunkPos {
+    fn sub_assign(&mut self, rhs: ChunkPos) {
+        self.x -= rhs.x;
+        self.y -= rhs.y;
+        self.z -= rhs.z;
     }
 }
 
@@ -169,4 +197,13 @@ impl From<VoxelPos> for (usize, usize, usize) {
     fn from(chunk_pos: VoxelPos) -> Self {
         chunk_pos.to_tuple()
     }
+}
+
+pub fn index_to_chunk_pos_bounds(index: usize, bounds: u32) -> ChunkPos {
+    (
+        index as i32 % bounds as i32,
+        (index as i32 / bounds as i32) % bounds as i32,
+        index as i32 / (bounds * bounds) as i32,
+    )
+        .into()
 }
