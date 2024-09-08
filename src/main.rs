@@ -11,6 +11,7 @@ use chunk::Chunk;
 use world::World;
 
 pub mod chunk;
+pub mod chunk_loading;
 pub mod chunk_mesh;
 pub mod culled_mesher;
 pub mod positions;
@@ -59,7 +60,7 @@ fn main() {
         ))
         .insert_resource(MovementSettings {
             sensitivity: 0.00015, // default: 0.00012
-            speed: 25.0,          // default: 12.0
+            speed: 16.0,          // default: 12.0
         })
         .insert_resource(KeyBindings {
             move_descend: KeyCode::ControlLeft,
@@ -67,33 +68,6 @@ fn main() {
         })
         .add_systems(Startup, setup)
         .insert_resource(World::new_with(vec![
-            // (2, 2, 2).into(),
-            // (1, 1, 1).into(),
-            // (0, 0, 0).into(),
-            // (0, 0, 1).into(),
-            // (0, 0, 2).into(),
-            // (0, 0, 3).into(),
-            // (0, 1, 0).into(),
-            // (0, 2, 0).into(),
-            // (0, 3, 0).into(),
-            // (1, 0, 0).into(),
-            // (2, 0, 0).into(),
-            // (3, 0, 0).into(),
-            // (2, 2, 1).into(),
-            // (3, 1, 2).into(),
-            // (0, 2, 2).into(),
-            // (-4, 0, 0).into(),
-            // (-4, 1, 0).into(),
-            // (-4, 2, 0).into(),
-            // (-3, 0, 0).into(),
-            // (-2, 0, 0).into(),
-            // (-1, 0, 0).into(),
-            // (8, 0, 0).into(),
-            // (8, 8, 0).into(),
-            // (0, 8, 0).into(),
-            // (0, 8, 8).into(),
-            // (0, 0, 8).into(),
-            // (0, -8, 8).into(),
             (0, 0, 0).into(),
             (1, 0, 0).into(),
             (2, 0, 0).into(),
