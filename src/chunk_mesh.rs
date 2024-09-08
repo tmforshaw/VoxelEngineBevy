@@ -89,45 +89,6 @@ impl Quad {
             ],
         };
 
-        // let corners = match dir {
-        //     Direction::Left => [
-        //         [pos.x, pos.y, pos.z],
-        //         [pos.x, pos.y, pos.z + 1],
-        //         [pos.x, pos.y + 1, pos.z + 1],
-        //         [pos.x, pos.y + 1, pos.z],
-        //     ],
-        //     Direction::Right => [
-        //         [pos.x + 1, pos.y, pos.z],
-        //         [pos.x + 1, pos.y, pos.z + 1],
-        //         [pos.x, pos.y, pos.z],
-        //         [pos.x + 1, pos.y + 1, pos.z],
-        //     ],
-        //     Direction::Down => [
-        //         [pos.x, pos.y, pos.z],
-        //         [pos.x + 1, pos.y, pos.z],
-        //         [pos.x + 1, pos.y, pos.z + 1],
-        //         [pos.x, pos.y, pos.z + 1],
-        //     ],
-        //     Direction::Up => [
-        //         [pos.x, pos.y + 1, pos.z],
-        //         [pos.x + 1, pos.y + 1, pos.z],
-        //         [pos.x + 1, pos.y, pos.z + 1],
-        //         [pos.x, pos.y, pos.z + 1],
-        //     ],
-        //     Direction::Backward => [
-        //         [pos.x, pos.y, pos.z + 1],
-        //         [pos.x, pos.y + 1, pos.z + 1],
-        //         [pos.x + 1, pos.y + 1, pos.z + 1],
-        //         [pos.x + 1, pos.y, pos.z + 1],
-        //     ],
-        //     Direction::Forward => [
-        //         [pos.x, pos.y, pos.z],
-        //         [pos.x, pos.y + 1, pos.z],
-        //         [pos.x + 1, pos.y + 1, pos.z],
-        //         [pos.x + 1, pos.y, pos.z],
-        //     ],
-        // };
-
         Self { corners, dir }
     }
 }
@@ -270,36 +231,19 @@ pub fn generate_mesh() -> Mesh {
     .with_inserted_indices(Indices::U32(indices))
 }
 
-// // generate a vec of indices
-// // assumes vertices are made of quads, and counter clockwise ordered
-// pub fn generate_indices(vertex_count: usize) -> Vec<u32> {
-//     let indices_count = vertex_count / 4;
-
-//     let mut indices = Vec::with_capacity(indices_count);
-//     for vert_index in (0..vertex_count as u32).step_by(4) {
-//         indices.append(&mut vec![
-//             vert_index,
-//             vert_index + 1,
-//             vert_index + 2,
-//             vert_index,
-//             vert_index + 2,
-//             vert_index + 3,
-//         ]);
-//     }
-//     indices
-// }
-
+// generate a vec of indices
+// assumes vertices are made of quads, and counter clockwise ordered
 pub fn generate_indices(vertex_count: usize) -> Vec<u32> {
-    let indices_count = vertex_count / 4;
-    let mut indices = Vec::<u32>::with_capacity(indices_count);
-    (0..indices_count).into_iter().for_each(|vert_index| {
-        let vert_index = vert_index as u32 * 4u32;
-        indices.push(vert_index);
-        indices.push(vert_index + 1);
-        indices.push(vert_index + 2);
-        indices.push(vert_index + 2);
-        indices.push(vert_index);
-        indices.push(vert_index + 3);
-    });
+    let mut indices = Vec::with_capacity((vertex_count * 6) / 4);
+    for vert_index in (0..vertex_count as u32).step_by(4) {
+        indices.append(&mut vec![
+            vert_index,
+            vert_index + 1,
+            vert_index + 2,
+            vert_index + 2,
+            vert_index,
+            vert_index + 3,
+        ]);
+    }
     indices
 }

@@ -7,7 +7,7 @@ use crate::{
 
 pub const NOISE_SEED: u64 = 0;
 
-pub const CHUNK_SIZE: usize = 4;
+pub const CHUNK_SIZE: usize = 8;
 
 #[derive(Clone, Debug)]
 pub struct Chunk {

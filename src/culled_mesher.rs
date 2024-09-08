@@ -82,68 +82,85 @@ pub fn build_chunk_mesh(
                     }
                 }
             }
+        }
 
-            if !mesh.vertices.is_empty() {
-                mesh.indices = generate_indices(mesh.vertices.len());
+        if !mesh.vertices.is_empty() {
+            mesh.indices = generate_indices(mesh.vertices.len());
 
-                let vertices = mesh
-                    .vertices
-                    .iter()
-                    .map(|vertex| {
-                        [
-                            vertex.pos.x as f32,
-                            vertex.pos.y as f32,
-                            vertex.pos.z as f32,
-                        ]
-                    })
-                    .collect::<Vec<[f32; 3]>>();
+            let vertices = mesh
+                .vertices
+                .iter()
+                .map(|vertex| {
+                    [
+                        vertex.pos.x as f32,
+                        vertex.pos.y as f32,
+                        vertex.pos.z as f32,
+                    ]
+                })
+                .collect::<Vec<[f32; 3]>>();
 
-                let normals_arr = [
-                    [-1.0, 0.0, 0.0], // Left
-                    [1.0, 0.0, 0.0],  // Right
-                    [0.0, -1.0, 0.0], // Down
-                    [0.0, 1.0, 0.0],  // Up
-                    [0.0, 0.0, -1.0], // Forward
-                    [0.0, 0.0, 1.0],  // Back
-                ];
+            // for i in (0..vertices.len()).step_by(4) {
+            //     println!(
+            //         "[{:?},{:?},{:?},{:?}]\t[{:?},{:?},{:?},{:?},{:?},{:?}]\t{:?}",
+            //         vertices[i],
+            //         vertices[i + 1],
+            //         vertices[i + 2],
+            //         vertices[i + 3],
+            //         mesh.indices[(i * 6) / 4] - i as u32,
+            //         mesh.indices[(i * 6) / 4 + 1] - i as u32,
+            //         mesh.indices[(i * 6) / 4 + 2] - i as u32,
+            //         mesh.indices[(i * 6) / 4 + 3] - i as u32,
+            //         mesh.indices[(i * 6) / 4 + 4] - i as u32,
+            //         mesh.indices[(i * 6) / 4 + 5] - i as u32,
+            //         mesh.vertices[i].normal
+            //     );
+            // }
 
-                let normals = mesh
-                    .vertices
-                    .iter()
-                    .map(|vertex| normals_arr[vertex.normal])
-                    .collect::<Vec<[f32; 3]>>();
+            let normals_arr = [
+                [-1.0, 0.0, 0.0], // Left
+                [1.0, 0.0, 0.0],  // Right
+                [0.0, 0.0, 1.0],  // Back
+                [0.0, 0.0, -1.0], // Front
+                [0.0, 1.0, 0.0],  // Up
+                [0.0, -1.0, 0.0], // Down
+            ];
 
-                let mesh_handle = meshes.add(
-                    Mesh::new(
-                        PrimitiveTopology::TriangleStrip,
-                        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
-                    )
-                    .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vertices)
-                    .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
-                    .with_inserted_indices(Indices::U32(mesh.clone().indices)),
-                );
+            let normals = mesh
+                .vertices
+                .iter()
+                .map(|vertex| normals_arr[vertex.normal])
+                .collect::<Vec<[f32; 3]>>();
 
-                let hue = ((voxel_pos.x * CHUNK_SIZE + voxel_pos.y) * CHUNK_SIZE + voxel_pos.z)
-                    as f32
-                    * (360. / (CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) as f32);
+            let mesh_handle = meshes.add(
+                Mesh::new(
+                    PrimitiveTopology::TriangleStrip,
+                    RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
+                )
+                .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vertices)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+                .with_inserted_indices(Indices::U32(mesh.clone().indices)),
+            );
 
-                commands.spawn(PbrBundle {
-                    mesh: mesh_handle,
-                    material: materials.add(StandardMaterial {
-                        base_color: Color::hsv(hue, 1., 1.),
-                        cull_mode: Some(Face::Back),
-                        ..Default::default()
-                    }),
-                    transform: Transform::from_xyz(
-                        (chunk_pos.x * CHUNK_SIZE as i32) as f32,
-                        (chunk_pos.y * CHUNK_SIZE as i32) as f32,
-                        (chunk_pos.z * CHUNK_SIZE as i32) as f32,
-                    ),
-                    ..default()
-                });
+            let hue = ((chunk_pos.x.unsigned_abs() as usize * CHUNK_SIZE
+                + chunk_pos.y.unsigned_abs() as usize)
+                * CHUNK_SIZE
+                + chunk_pos.z.unsigned_abs() as usize) as f32
+                * (360. / (CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) as f32);
 
-                mesh = ChunkMesh::default();
-            }
+            commands.spawn(PbrBundle {
+                mesh: mesh_handle,
+                material: materials.add(StandardMaterial {
+                    base_color: Color::hsv(hue, 1., 1.),
+                    cull_mode: None,
+                    ..Default::default()
+                }),
+                transform: Transform::from_xyz(
+                    (chunk_pos.x * CHUNK_SIZE as i32) as f32,
+                    (chunk_pos.y * CHUNK_SIZE as i32) as f32,
+                    (chunk_pos.z * CHUNK_SIZE as i32) as f32,
+                ),
+                ..default()
+            });
         }
     }
 }

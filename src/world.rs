@@ -22,18 +22,17 @@ impl World {
     pub fn new_with(voxels_at: Vec<WorldPos>) -> Self {
         let mut world = World::default();
 
-        // world.add_chunk_at((0, -1, 0).into());
-        // world.add_chunk_at((0, -2, 0).into());
-        // world.add_chunk_at((1, -1, 0).into());
-        // world.add_chunk_at((1, -2, 0).into());
-        // world.add_chunk_at((2, -1, 0).into());
-        // world.add_chunk_at((2, -2, 0).into());
-        // world.add_chunk_at((3, -1, 0).into());
-        // world.add_chunk_at((3, -2, 0).into());
-
-        for pos in voxels_at {
-            world.set_voxel(pos, VoxelType::Block);
+        for y in -2..2 {
+            for x in -8..=8 {
+                for z in -8..=8 {
+                    world.add_chunk_at((x, y, z).into());
+                }
+            }
         }
+
+        // for pos in voxels_at {
+        //     world.set_voxel(pos, VoxelType::Block);
+        // }
 
         world
     }
