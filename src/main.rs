@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use bevy::prelude::*;
 use bevy_flycam::prelude::*;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
@@ -17,12 +19,12 @@ pub mod world;
 
 fn setup(mut commands: Commands) {
     // light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            shadows_enabled: true,
+    commands.spawn(DirectionalLightBundle {
+        directional_light: DirectionalLight {
+            shadows_enabled: false,
             ..default()
         },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
+        transform: Transform::from_rotation(Quat::from_euler(EulerRot::XYZ, 0.0, PI, 0.)),
         ..default()
     });
     // camera
@@ -63,32 +65,35 @@ fn main() {
         })
         .add_systems(Startup, setup)
         .insert_resource(World::new_with(vec![
-            (0, 0, 0).into(),
-            (0, 0, 1).into(),
-            (0, 0, 2).into(),
-            (0, 0, 3).into(),
-            (0, 1, 0).into(),
-            (0, 2, 0).into(),
-            (0, 3, 0).into(),
-            (1, 0, 0).into(),
-            (2, 0, 0).into(),
-            (3, 0, 0).into(),
-            (2, 2, 1).into(),
-            (3, 1, 2).into(),
-            (0, 2, 2).into(),
-            (-4, 0, 0).into(),
-            (-4, 1, 0).into(),
-            (-4, 2, 0).into(),
-            (-3, 0, 0).into(),
-            (-2, 0, 0).into(),
-            (-1, 0, 0).into(),
-            (8, 0, 0).into(),
-            (8, 8, 0).into(),
-            (0, 8, 0).into(),
-            (0, 8, 8).into(),
-            (0, 0, 8).into(),
-            (0, -8, 8).into(),
+            // (2, 2, 2).into(),
+            (1, 1, 1).into(),
+            // (0, 0, 0).into(),
+            // (0, 0, 1).into(),
+            // (0, 0, 2).into(),
+            // (0, 0, 3).into(),
+            // (0, 1, 0).into(),
+            // (0, 2, 0).into(),
+            // (0, 3, 0).into(),
+            // (1, 0, 0).into(),
+            // (2, 0, 0).into(),
+            // (3, 0, 0).into(),
+            // (2, 2, 1).into(),
+            // (3, 1, 2).into(),
+            // (0, 2, 2).into(),
+            // (-4, 0, 0).into(),
+            // (-4, 1, 0).into(),
+            // (-4, 2, 0).into(),
+            // (-3, 0, 0).into(),
+            // (-2, 0, 0).into(),
+            // (-1, 0, 0).into(),
+            // (8, 0, 0).into(),
+            // (8, 8, 0).into(),
+            // (0, 8, 0).into(),
+            // (0, 8, 8).into(),
+            // (0, 0, 8).into(),
+            // (0, -8, 8).into(),
         ]))
-        .add_systems(PostStartup, World::generate)
+        // .add_systems(PostStartup, World::generate)
+        .add_systems(PostStartup, culled_mesher::build_chunk_mesh)
         .run();
 }

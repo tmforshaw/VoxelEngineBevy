@@ -2,19 +2,34 @@ use crate::chunk::CHUNK_SIZE;
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub enum VoxelType {
-    None,
+    Air,
     Block,
+}
+
+impl VoxelType {
+    pub fn is_solid(&self) -> bool {
+        match self {
+            VoxelType::Block => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
 pub struct Voxel {
-    pub kind: VoxelType,
+    pub voxel_type: VoxelType,
+}
+
+impl Voxel {
+    pub fn new(voxel_type: VoxelType) -> Self {
+        Self { voxel_type }
+    }
 }
 
 impl Default for Voxel {
     fn default() -> Self {
         Self {
-            kind: VoxelType::None,
+            voxel_type: VoxelType::Air,
         }
     }
 }
@@ -22,7 +37,7 @@ impl Default for Voxel {
 impl From<VoxelType> for u32 {
     fn from(voxel_type: VoxelType) -> Self {
         match voxel_type {
-            VoxelType::None => 0,
+            VoxelType::Air => 0,
             VoxelType::Block => 1,
         }
     }
@@ -31,14 +46,14 @@ impl From<VoxelType> for u32 {
 impl From<u32> for VoxelType {
     fn from(voxel_type: u32) -> Self {
         match voxel_type {
-            0 => VoxelType::None,
+            0 => VoxelType::Air,
             1 => VoxelType::Block,
             _ => panic!("Voxel type: {voxel_type} not recognised, so can't convert to VoxelType"),
         }
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct VoxelPos {
     pub x: usize,
     pub y: usize,
@@ -51,13 +66,13 @@ impl VoxelPos {
     }
 
     pub fn from_tuple(pos: (usize, usize, usize)) -> Self {
-        assert!(
-            pos.0 < CHUNK_SIZE && pos.1 < CHUNK_SIZE && pos.2 < CHUNK_SIZE,
-            "x: {}, y: {}, z: {}",
-            pos.0,
-            pos.1,
-            pos.2
-        );
+        // assert!(
+        //     pos.0 < CHUNK_SIZE && pos.1 < CHUNK_SIZE && pos.2 < CHUNK_SIZE,
+        //     "x: {}, y: {}, z: {}",
+        //     pos.0,
+        //     pos.1,
+        //     pos.2
+        // );
 
         Self {
             x: pos.0,

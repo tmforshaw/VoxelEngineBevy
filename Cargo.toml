@@ -10,6 +10,7 @@ bevy = { version = "0.14.*", features = ["dynamic_linking"] }
 bevy-inspector-egui = "0.25.2"
 bevy_flycam = "0.14.1"
 bevy_screen_diagnostics = "0.6.0"
+bracket-noise = "0.8.7"
 vecfx = "0.1.6"
 
 [profile.dev]

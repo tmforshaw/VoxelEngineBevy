@@ -2,7 +2,7 @@
 
 use crate::{chunk::CHUNK_SIZE, voxel::VoxelPos};
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct WorldPos {
     pub x: i32,
     pub y: i32,
@@ -14,7 +14,7 @@ impl WorldPos {
         Self { x, y, z }
     }
 
-    pub fn to_voxel_pos(pos: Self) -> (ChunkPos, VoxelPos) {
+    pub fn to_voxel_pos(pos: Self) -> (VoxelPos, ChunkPos) {
         // Subtract CHUNK_SIZE / 2 before modulus so that negative chunks are rounded down to negative values (instead of rounded up to 0,0,0)
         // Add 0.5 before division so that before rounding, a value of 1/(2 * CHUNK_SIZE) is added, this makes the even rounding work for any chunk size
         let chunk_pos = (
@@ -30,10 +30,18 @@ impl WorldPos {
             ((pos.z % CHUNK_SIZE as i32 + CHUNK_SIZE as i32) % CHUNK_SIZE as i32) as usize,
         );
 
-        println!("{chunk_pos:?}\t{voxel_pos:?}");
         let chunk_pos = (chunk_pos.0 as i32, chunk_pos.1 as i32, chunk_pos.2 as i32);
 
-        (chunk_pos.into(), voxel_pos.into())
+        (voxel_pos.into(), chunk_pos.into())
+    }
+
+    pub fn from_voxel_pos(voxel_pos: VoxelPos, chunk_pos: ChunkPos) -> Self {
+        (
+            voxel_pos.x as i32 + chunk_pos.x * CHUNK_SIZE as i32,
+            voxel_pos.y as i32 + chunk_pos.y * CHUNK_SIZE as i32,
+            voxel_pos.z as i32 + chunk_pos.z * CHUNK_SIZE as i32,
+        )
+            .into()
     }
 }
 
