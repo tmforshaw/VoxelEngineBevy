@@ -7,11 +7,7 @@ use bevy::{
     },
 };
 
-use crate::{
-    positions::WorldPos,
-    vertex::{Vertex, VertexU32},
-    voxel::VoxelPos,
-};
+use crate::{positions::VoxelPos, vertex::Vertex};
 
 #[derive(Copy, Clone, Debug)]
 #[repr(u8)]

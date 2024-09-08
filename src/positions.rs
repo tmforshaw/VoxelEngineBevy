@@ -1,6 +1,8 @@
 // World Position Struct (For any voxel in the world)
 
-use crate::{chunk::CHUNK_SIZE, voxel::VoxelPos};
+use std::ops::{Add, Sub};
+
+use crate::chunk::CHUNK_SIZE;
 
 #[derive(Copy, Clone, Debug)]
 pub struct WorldPos {
@@ -91,6 +93,22 @@ impl From<(i32, i32, i32)> for ChunkPos {
 impl From<ChunkPos> for (i32, i32, i32) {
     fn from(chunk_pos: ChunkPos) -> Self {
         chunk_pos.to_tuple()
+    }
+}
+
+impl Add<ChunkPos> for ChunkPos {
+    type Output = ChunkPos;
+
+    fn add(self, rhs: ChunkPos) -> Self::Output {
+        (self.x + rhs.x, self.y + rhs.y, self.z + rhs.z).into()
+    }
+}
+
+impl Sub<ChunkPos> for ChunkPos {
+    type Output = ChunkPos;
+
+    fn sub(self, rhs: ChunkPos) -> Self::Output {
+        (self.x - rhs.x, self.y - rhs.y, self.z - rhs.z).into()
     }
 }
 

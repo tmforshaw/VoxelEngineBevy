@@ -1,7 +1,4 @@
-use crate::{
-    chunk_mesh::Direction,
-    voxel::{VoxelPos, VoxelType},
-};
+use crate::{chunk_mesh::Direction, positions::VoxelPos, voxel::VoxelType};
 
 #[derive(Copy, Clone, Debug)]
 pub struct Vertex {

@@ -9,8 +9,8 @@ use bevy::prelude::*;
 use crate::{
     chunk::{Chunk, CHUNK_SIZE},
     chunk_mesh,
-    positions::{ChunkPos, WorldPos},
-    voxel::{Voxel, VoxelPos, VoxelType},
+    positions::{ChunkPos, VoxelPos, WorldPos},
+    voxel::{Voxel, VoxelType},
 };
 
 // World size in blocks
@@ -133,38 +133,7 @@ impl World {
 
     // Used to get a voxel (including from neighbouring chunks)
     pub fn get_voxel(&self, world_pos: WorldPos) -> Option<Voxel> {
-        // let (chunk_x, x) = if pos.x > 0 {
-        //     (0, CHUNK_SIZE as i32 + pos.x)
-        // } else if pos.x >= CHUNK_SIZE as i32 {
-        //     (2, pos.x - CHUNK_SIZE as i32)
-        // } else {
-        //     (1, pos.x)
-        // };
-
-        // let (chunk_y, y) = if pos.y > 0 {
-        //     (0, CHUNK_SIZE as i32 + pos.y)
-        // } else if pos.y >= CHUNK_SIZE as i32 {
-        //     (2, pos.y - CHUNK_SIZE as i32)
-        // } else {
-        //     (1, pos.y)
-        // };
-
-        // let (chunk_z, z) = if pos.z > 0 {
-        //     (0, CHUNK_SIZE as i32 + pos.z)
-        // } else if pos.z >= CHUNK_SIZE as i32 {
-        //     (2, pos.z - CHUNK_SIZE as i32)
-        // } else {
-        //     (1, pos.z)
-        // };
-
         let (voxel_pos, chunk_pos) = WorldPos::to_voxel_pos(world_pos);
-
-        // let chunk_pos = (
-        //     chunk_pos.x + chunk_x,
-        //     chunk_pos.y + chunk_y,
-        //     chunk_pos.z + chunk_z,
-        // )
-        //     .into();
 
         // If the chunk exists
         if let Some(chunk) = self.chunks.get(&chunk_pos) {
@@ -186,8 +155,6 @@ impl World {
         chunk_pos: ChunkPos,
     ) -> (Voxel, Option<Voxel>, Option<Voxel>, Option<Voxel>) {
         let world_pos = WorldPos::from_voxel_pos(voxel_pos, chunk_pos);
-
-        // println!("{voxel_pos:?}, {chunk_pos:?}, {world_pos:?}");
 
         let current = self.get_voxel(world_pos).unwrap(); // Should always be able to find current voxel
         let back = self.get_voxel((world_pos.x, world_pos.y, world_pos.z - 1).into());

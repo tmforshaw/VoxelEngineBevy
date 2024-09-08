@@ -12,8 +12,9 @@ use bevy::{
 use crate::{
     chunk::CHUNK_SIZE,
     chunk_mesh::{generate_indices, ChunkMesh, Direction, Quad},
+    positions::VoxelPos,
     vertex::Vertex,
-    voxel::{VoxelPos, VoxelType},
+    voxel::VoxelType,
     world::World,
 };
 
@@ -96,23 +97,6 @@ pub fn build_chunk_mesh(
                     ]
                 })
                 .collect::<Vec<[f32; 3]>>();
-
-            // for i in (0..vertices.len()).step_by(4) {
-            // println!(
-            //     "[{:?},{:?},{:?},{:?}]\t[{:?},{:?},{:?},{:?},{:?},{:?}]\t{:?}",
-            //     vertices[i],
-            //     vertices[i + 1],
-            //     vertices[i + 2],
-            //     vertices[i + 3],
-            //     mesh.indices[(i * 6) / 4] - i as u32,
-            //     mesh.indices[(i * 6) / 4 + 1] - i as u32,
-            //     mesh.indices[(i * 6) / 4 + 2] - i as u32,
-            //     mesh.indices[(i * 6) / 4 + 3] - i as u32,
-            //     mesh.indices[(i * 6) / 4 + 4] - i as u32,
-            //     mesh.indices[(i * 6) / 4 + 5] - i as u32,
-            //     mesh.vertices[i].normal
-            // );
-            // }
 
             let normals_arr = [
                 [-1.0, 0.0, 0.0], // Left

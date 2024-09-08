@@ -1,8 +1,8 @@
 use bracket_noise::prelude::*;
 
 use crate::{
-    positions::{ChunkPos, WorldPos},
-    voxel::{Voxel, VoxelPos, VoxelType},
+    positions::{ChunkPos, VoxelPos, WorldPos},
+    voxel::{Voxel, VoxelType},
 };
 
 pub const NOISE_SEED: u64 = 0;
@@ -82,25 +82,6 @@ impl Chunk {
 
         chunk
     }
-
-    // ///! helper function to get block data that may exceed the bounds of the middle chunk
-    // ///! input position is local pos to middle chunk
-    // pub fn get_block(&self, pos: WorldPos) -> &Voxel {
-    //     let x = (pos.x + 32) as u32;
-    //     let y = (pos.y + 32) as u32;
-    //     let z = (pos.z + 32) as u32;
-    //     let (x_chunk, x) = ((x / 32) as i32, (x % 32) as i32);
-    //     let (y_chunk, y) = ((y / 32) as i32, (y % 32) as i32);
-    //     let (z_chunk, z) = ((z / 32) as i32, (z % 32) as i32);
-
-    //     let (chunk_pos, voxel_pos)= WorldPos::to_voxel_pos(pos);
-
-    //     let chunk_index = ChunkPos::
-    //     let chunk_index = vec3_to_index(IVec3::new(x_chunk, y_chunk, z_chunk), 3);
-    //     let chunk_data = &self.chunks[chunk_index];
-    //     let i = vec3_to_index(IVec3::new(x, y, z), 32);
-    //     chunk_data.get_block(i)
-    // }
 }
 
 impl std::ops::Index<usize> for Chunk {
