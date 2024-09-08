@@ -63,18 +63,6 @@ impl Quad {
                 [pos.x, pos.y, pos.z + 1],
                 [pos.x, pos.y, pos.z],
             ],
-            Direction::Down => [
-                [pos.x, pos.y, pos.z],
-                [pos.x + 1, pos.y, pos.z],
-                [pos.x + 1, pos.y, pos.z + 1],
-                [pos.x, pos.y, pos.z + 1],
-            ],
-            Direction::Up => [
-                [pos.x, pos.y, pos.z + 1],
-                [pos.x + 1, pos.y, pos.z + 1],
-                [pos.x + 1, pos.y, pos.z],
-                [pos.x, pos.y, pos.z],
-            ],
             Direction::Back => [
                 [pos.x, pos.y, pos.z],
                 [pos.x, pos.y + 1, pos.z],
@@ -86,6 +74,18 @@ impl Quad {
                 [pos.x + 1, pos.y + 1, pos.z],
                 [pos.x, pos.y + 1, pos.z],
                 [pos.x, pos.y, pos.z],
+            ],
+            Direction::Up => [
+                [pos.x, pos.y, pos.z + 1],
+                [pos.x + 1, pos.y, pos.z + 1],
+                [pos.x + 1, pos.y, pos.z],
+                [pos.x, pos.y, pos.z],
+            ],
+            Direction::Down => [
+                [pos.x, pos.y, pos.z],
+                [pos.x + 1, pos.y, pos.z],
+                [pos.x + 1, pos.y, pos.z + 1],
+                [pos.x, pos.y, pos.z + 1],
             ],
         };
 
@@ -240,8 +240,8 @@ pub fn generate_indices(vertex_count: usize) -> Vec<u32> {
             vert_index,
             vert_index + 1,
             vert_index + 2,
-            vert_index + 2,
             vert_index,
+            vert_index + 2,
             vert_index + 3,
         ]);
     }

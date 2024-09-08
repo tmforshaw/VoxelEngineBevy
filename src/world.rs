@@ -22,13 +22,15 @@ impl World {
     pub fn new_with(voxels_at: Vec<WorldPos>) -> Self {
         let mut world = World::default();
 
-        for y in -2..2 {
-            for x in -8..=8 {
-                for z in -8..=8 {
+        for y in -3..2 {
+            for x in -16..=16 {
+                for z in -16..=16 {
                     world.add_chunk_at((x, y, z).into());
                 }
             }
         }
+
+        // world.add_chunk_at((0, -1, 0).into());
 
         // for pos in voxels_at {
         //     world.set_voxel(pos, VoxelType::Block);
@@ -173,12 +175,12 @@ impl World {
         &self,
         voxel_pos: VoxelPos,
         chunk_pos: ChunkPos,
-    ) -> (Option<Voxel>, Option<Voxel>, Option<Voxel>, Option<Voxel>) {
+    ) -> (Voxel, Option<Voxel>, Option<Voxel>, Option<Voxel>) {
         let world_pos = WorldPos::from_voxel_pos(voxel_pos, chunk_pos);
 
         // println!("{voxel_pos:?}, {chunk_pos:?}, {world_pos:?}");
 
-        let current = self.get_voxel(world_pos);
+        let current = self.get_voxel(world_pos).unwrap(); // Should always be able to find current voxel
         let back = self.get_voxel((world_pos.x, world_pos.y, world_pos.z - 1).into());
         let left = self.get_voxel((world_pos.x - 1, world_pos.y, world_pos.z).into());
         let down = self.get_voxel((world_pos.x, world_pos.y - 1, world_pos.z).into());

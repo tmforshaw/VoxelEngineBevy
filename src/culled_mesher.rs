@@ -6,6 +6,7 @@ use bevy::{
         render_asset::RenderAssetUsages,
         render_resource::Face,
     },
+    utils::tracing::instrument::WithSubscriber,
 };
 
 use crate::{
@@ -18,9 +19,8 @@ use crate::{
 
 fn push_face(mesh: &mut ChunkMesh, dir: Direction, vertex_pos: VoxelPos, voxel_type: VoxelType) {
     let quad = Quad::from_dir(vertex_pos, dir);
-    // println!("{vertex_pos:?}\t{:?}\t{:?}", quad.corners, quad.dir);
 
-    for corner in quad.corners.into_iter() {
+    for corner in quad.corners.iter() {
         mesh.vertices.push(Vertex::new(
             (corner[0], corner[1], corner[2]).into(),
             dir,
@@ -35,7 +35,7 @@ pub fn build_chunk_mesh(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    for (&chunk_pos, chunk) in world.chunks.iter() {
+    for (&chunk_pos, _chunk) in world.chunks.iter() {
         let mut mesh = ChunkMesh::default();
 
         for index in 0..(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) {
@@ -43,18 +43,16 @@ pub fn build_chunk_mesh(
 
             let (current, back, left, down) = world.get_adjacent_voxels(voxel_pos, chunk_pos);
 
-            let current = current.unwrap(); // Should never not be able to find the current voxel
-
             if current.voxel_type.is_solid() {
-                if let Some(back) = back {
-                    if !back.voxel_type.is_solid() {
-                        push_face(&mut mesh, Direction::Back, voxel_pos, current.voxel_type)
-                    }
-                }
-
                 if let Some(left) = left {
                     if !left.voxel_type.is_solid() {
                         push_face(&mut mesh, Direction::Left, voxel_pos, current.voxel_type)
+                    }
+                }
+
+                if let Some(back) = back {
+                    if !back.voxel_type.is_solid() {
+                        push_face(&mut mesh, Direction::Back, voxel_pos, current.voxel_type)
                     }
                 }
 
@@ -64,15 +62,15 @@ pub fn build_chunk_mesh(
                     }
                 }
             } else {
-                if let Some(back) = back {
-                    if back.voxel_type.is_solid() {
-                        push_face(&mut mesh, Direction::Front, voxel_pos, back.voxel_type)
-                    }
-                }
-
                 if let Some(left) = left {
                     if left.voxel_type.is_solid() {
                         push_face(&mut mesh, Direction::Right, voxel_pos, left.voxel_type)
+                    }
+                }
+
+                if let Some(back) = back {
+                    if back.voxel_type.is_solid() {
+                        push_face(&mut mesh, Direction::Front, voxel_pos, back.voxel_type)
                     }
                 }
 
@@ -100,20 +98,20 @@ pub fn build_chunk_mesh(
                 .collect::<Vec<[f32; 3]>>();
 
             // for i in (0..vertices.len()).step_by(4) {
-            //     println!(
-            //         "[{:?},{:?},{:?},{:?}]\t[{:?},{:?},{:?},{:?},{:?},{:?}]\t{:?}",
-            //         vertices[i],
-            //         vertices[i + 1],
-            //         vertices[i + 2],
-            //         vertices[i + 3],
-            //         mesh.indices[(i * 6) / 4] - i as u32,
-            //         mesh.indices[(i * 6) / 4 + 1] - i as u32,
-            //         mesh.indices[(i * 6) / 4 + 2] - i as u32,
-            //         mesh.indices[(i * 6) / 4 + 3] - i as u32,
-            //         mesh.indices[(i * 6) / 4 + 4] - i as u32,
-            //         mesh.indices[(i * 6) / 4 + 5] - i as u32,
-            //         mesh.vertices[i].normal
-            //     );
+            // println!(
+            //     "[{:?},{:?},{:?},{:?}]\t[{:?},{:?},{:?},{:?},{:?},{:?}]\t{:?}",
+            //     vertices[i],
+            //     vertices[i + 1],
+            //     vertices[i + 2],
+            //     vertices[i + 3],
+            //     mesh.indices[(i * 6) / 4] - i as u32,
+            //     mesh.indices[(i * 6) / 4 + 1] - i as u32,
+            //     mesh.indices[(i * 6) / 4 + 2] - i as u32,
+            //     mesh.indices[(i * 6) / 4 + 3] - i as u32,
+            //     mesh.indices[(i * 6) / 4 + 4] - i as u32,
+            //     mesh.indices[(i * 6) / 4 + 5] - i as u32,
+            //     mesh.vertices[i].normal
+            // );
             // }
 
             let normals_arr = [
@@ -133,7 +131,7 @@ pub fn build_chunk_mesh(
 
             let mesh_handle = meshes.add(
                 Mesh::new(
-                    PrimitiveTopology::TriangleStrip,
+                    PrimitiveTopology::TriangleList,
                     RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
                 )
                 .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vertices)
@@ -142,23 +140,24 @@ pub fn build_chunk_mesh(
             );
 
             let hue = ((chunk_pos.x.unsigned_abs() as usize * CHUNK_SIZE
-                + chunk_pos.y.unsigned_abs() as usize)
+                + (chunk_pos.y << 2).unsigned_abs() as usize)
                 * CHUNK_SIZE
-                + chunk_pos.z.unsigned_abs() as usize) as f32
+                + (chunk_pos.z << 4).unsigned_abs() as usize) as f32
                 * (360. / (CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) as f32);
 
             commands.spawn(PbrBundle {
                 mesh: mesh_handle,
                 material: materials.add(StandardMaterial {
                     base_color: Color::hsv(hue, 1., 1.),
-                    cull_mode: None,
-                    ..Default::default()
+                    cull_mode: Some(Face::Back),
+                    ..default()
                 }),
                 transform: Transform::from_xyz(
                     (chunk_pos.x * CHUNK_SIZE as i32) as f32,
                     (chunk_pos.y * CHUNK_SIZE as i32) as f32,
                     (chunk_pos.z * CHUNK_SIZE as i32) as f32,
                 ),
+
                 ..default()
             });
         }
