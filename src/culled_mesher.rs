@@ -140,9 +140,9 @@ pub fn build_chunk_mesh(
             );
 
             let hue = ((chunk_pos.x.unsigned_abs() as usize * CHUNK_SIZE
-                + (chunk_pos.y << 2).unsigned_abs() as usize)
+                + chunk_pos.y.unsigned_abs() as usize)
                 * CHUNK_SIZE
-                + (chunk_pos.z << 4).unsigned_abs() as usize) as f32
+                + chunk_pos.z.unsigned_abs() as usize) as f32
                 * (360. / (CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) as f32);
 
             commands.spawn(PbrBundle {

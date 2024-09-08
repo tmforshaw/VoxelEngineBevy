@@ -13,6 +13,9 @@ use crate::{
     voxel::{Voxel, VoxelPos, VoxelType},
 };
 
+// World size in blocks
+pub const WORLD_SIZE: (usize, usize, usize) = (4 * 32, 2 * 32, 4 * 32);
+
 #[derive(Resource, Default)]
 pub struct World {
     pub chunks: HashMap<ChunkPos, Arc<Mutex<Chunk>>>,
@@ -22,9 +25,15 @@ impl World {
     pub fn new_with(voxels_at: Vec<WorldPos>) -> Self {
         let mut world = World::default();
 
-        for y in -3..2 {
-            for x in -16..=16 {
-                for z in -16..=16 {
+        for y in -(WORLD_SIZE.1 as i32 / (2 * CHUNK_SIZE as i32))
+            ..(WORLD_SIZE.1 as i32 / (2 * CHUNK_SIZE as i32))
+        {
+            for x in -(WORLD_SIZE.0 as i32 / (2 * CHUNK_SIZE as i32))
+                ..(WORLD_SIZE.0 as i32 / (2 * CHUNK_SIZE as i32))
+            {
+                for z in -(WORLD_SIZE.2 as i32 / (2 * CHUNK_SIZE as i32))
+                    ..(WORLD_SIZE.2 as i32 / (2 * CHUNK_SIZE as i32))
+                {
                     world.add_chunk_at((x, y, z).into());
                 }
             }
