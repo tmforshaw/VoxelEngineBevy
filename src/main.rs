@@ -7,10 +7,11 @@ use bevy_screen_diagnostics::{
     ScreenDiagnosticsPlugin, ScreenEntityDiagnosticsPlugin, ScreenFrameDiagnosticsPlugin,
 };
 
-use chunk_loading::ChunkLoaderPlugin;
-use world::World;
+use chunk_loading::{ChunkLoader, ChunkLoaderPlugin, CHUNK_LOAD_DISTANCE};
+use world::WorldPlugin;
 
 pub mod chunk;
+pub mod chunk_from_middle;
 pub mod chunk_loading;
 pub mod chunk_mesh;
 pub mod culled_mesher;
@@ -31,6 +32,7 @@ fn setup(mut commands: Commands) {
     });
     // camera
     commands.spawn((
+        ChunkLoader::new(CHUNK_LOAD_DISTANCE),
         Camera3dBundle {
             transform: Transform::from_xyz(9.0, 9.0, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
@@ -64,6 +66,7 @@ fn main() {
                 }),
         )
         .add_plugins(ChunkLoaderPlugin)
+        .add_plugins(WorldPlugin)
         .add_plugins(NoCameraPlayerPlugin)
         .add_plugins(WorldInspectorPlugin::new())
         // .add_plugins(AssetInspectorPlugin::<Mesh>::default())
@@ -74,23 +77,12 @@ fn main() {
         ))
         .insert_resource(MovementSettings {
             sensitivity: 0.00015, // default: 0.00012
-            speed: 16.0,          // default: 12.0
+            speed: 64.0,          // default: 12.0
         })
         .insert_resource(KeyBindings {
             move_descend: KeyCode::ControlLeft,
             ..Default::default()
         })
         .add_systems(Startup, setup)
-        .insert_resource(World::new_with(vec![
-            (0, 0, 0).into(),
-            (1, 0, 0).into(),
-            (2, 0, 0).into(),
-            (3, 0, 0).into(),
-            (0, 1, 0).into(),
-            (0, 2, 0).into(),
-            (0, 3, 0).into(),
-        ]))
-        // .add_systems(PostStartup, World::generate)
-        .add_systems(PostStartup, culled_mesher::build_chunk_mesh)
         .run();
 }

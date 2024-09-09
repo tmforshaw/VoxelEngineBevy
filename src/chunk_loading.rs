@@ -8,15 +8,65 @@ use crate::{
     world::World,
 };
 
+pub const CHUNK_LOAD_DISTANCE: u32 = 12;
+
+pub const MAX_DATA_TASKS: usize = 64;
+pub const MAX_MESH_TASKS: usize = 64;
+pub const MAX_CHUNK_LOADS: usize = 26000;
+
+pub const ADJACENT_CHUNK_DIRECTIONS: [ChunkPos; 27] = [
+    ChunkPos { x: 0, y: 0, z: 0 },
+    ChunkPos { x: 0, y: -1, z: -1 },
+    ChunkPos { x: -1, y: 0, z: -1 },
+    ChunkPos { x: -1, y: 0, z: 1 },
+    ChunkPos { x: -1, y: -1, z: 0 },
+    ChunkPos {
+        x: -1,
+        y: -1,
+        z: -1,
+    },
+    ChunkPos { x: -1, y: 1, z: -1 },
+    ChunkPos { x: -1, y: -1, z: 1 },
+    ChunkPos { x: -1, y: 1, z: 1 },
+    ChunkPos { x: 1, y: 0, z: -1 },
+    ChunkPos { x: 1, y: -1, z: -1 },
+    ChunkPos { x: 0, y: 1, z: -1 },
+    ChunkPos { x: 1, y: 1, z: 1 },
+    ChunkPos { x: 1, y: -1, z: 1 },
+    ChunkPos { x: 1, y: 1, z: -1 },
+    ChunkPos { x: 1, y: 1, z: 0 },
+    ChunkPos { x: 0, y: 1, z: 1 },
+    ChunkPos { x: 1, y: -1, z: 0 },
+    ChunkPos { x: 0, y: -1, z: 1 },
+    ChunkPos { x: 1, y: 0, z: 1 },
+    ChunkPos { x: -1, y: 1, z: 0 },
+    // von neumann neighbour
+    ChunkPos { x: -1, y: 0, z: 0 },
+    ChunkPos { x: 1, y: 0, z: 0 },
+    ChunkPos { x: 0, y: -1, z: 0 },
+    ChunkPos { x: 0, y: 1, z: 0 },
+    ChunkPos { x: 0, y: 0, z: -1 },
+    ChunkPos { x: 0, y: 0, z: 1 },
+];
+
 pub struct ChunkLoaderPlugin;
 
 impl Plugin for ChunkLoaderPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_systems(PreUpdate, ChunkLoader::detect_move);
+        app.add_systems(
+            PreUpdate,
+            (
+                ChunkLoader::detect_move,
+                ChunkLoader::load_chunks,
+                ChunkLoader::unload_chunks,
+                ChunkLoader::load_mesh,
+                ChunkLoader::unload_mesh,
+            ),
+        );
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Debug)]
 pub struct ChunkLoader {
     pub prev_chunk_pos: ChunkPos,
 
@@ -89,7 +139,8 @@ impl ChunkLoader {
     ) {
         for (mut loader, g_transform) in loaders.iter_mut() {
             let chunk_pos = ChunkPos::from_vec3(
-                (g_transform.translation() - Vec3::splat(CHUNK_SIZE as f32 / 2.)) * (1. / 32.),
+                (g_transform.translation() - Vec3::splat(CHUNK_SIZE as f32 / 2.))
+                    / CHUNK_SIZE as f32,
             );
 
             let prev_chunk_pos = loader.prev_chunk_pos;
@@ -166,8 +217,8 @@ impl ChunkLoader {
             }
 
             // Remove the unloads from load
-            data_load_queue.retain(|pos| data_unload_queue.contains(pos));
-            mesh_load_queue.retain(|pos| mesh_unload_queue.contains(pos));
+            data_load_queue.retain(|pos| !data_unload_queue.contains(pos));
+            mesh_load_queue.retain(|pos| !mesh_unload_queue.contains(pos));
 
             // Sort data and mesh load queues by distance to chunk_pos
             loader.data_load_queue.sort_by(|lhs, rhs| {
@@ -178,6 +229,107 @@ impl ChunkLoader {
                 lhs.distance_squared(chunk_pos)
                     .cmp(&rhs.distance_squared(chunk_pos))
             });
+        }
+    }
+
+    pub fn load_chunks(
+        mut loaders: Query<(&mut ChunkLoader, &GlobalTransform)>,
+        mut world: ResMut<World>,
+    ) {
+        for (mut loader, _g_transform) in loaders.iter_mut() {
+            if world.data_tasks.len() >= MAX_DATA_TASKS {
+                return;
+            }
+
+            let data_len = loader.data_load_queue.len();
+
+            for chunk_pos in loader
+                .data_load_queue
+                .drain(0..MAX_CHUNK_LOADS.min(data_len))
+            {
+                let is_busy = world.chunks.contains_key(&chunk_pos)
+                    || world.load_data_queue.contains(&chunk_pos)
+                    || world.data_tasks.contains_key(&chunk_pos);
+
+                if !is_busy {
+                    world.load_data_queue.push(chunk_pos);
+
+                    // Abort load
+                    let index_of_unloading = world
+                        .unload_data_queue
+                        .iter()
+                        .enumerate()
+                        .find_map(|(i, pos)| if pos == &chunk_pos { Some(i) } else { None });
+
+                    if let Some(i) = index_of_unloading {
+                        world.unload_data_queue.remove(i);
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn unload_chunks(
+        mut loaders: Query<(&mut ChunkLoader, &GlobalTransform)>,
+        mut world: ResMut<World>,
+    ) {
+        // Find all loaded and check if in range
+        for (mut loader, _g_transform) in loaders.iter_mut() {
+            for chunk_pos in loader.data_unload_queue.drain(..) {
+                let is_busy = !world.chunks.contains_key(&chunk_pos);
+
+                if !is_busy {
+                    world.unload_data_queue.push(chunk_pos);
+                }
+            }
+        }
+    }
+
+    pub fn load_mesh(mut loaders: Query<&mut ChunkLoader>, mut world: ResMut<World>) {
+        for mut loader in loaders.iter_mut() {
+            let mut retries = Vec::new();
+
+            let mesh_data_len = loader.mesh_load_queue.len();
+
+            for chunk_pos in loader
+                .mesh_load_queue
+                .drain(0..MAX_CHUNK_LOADS.min(mesh_data_len))
+            {
+                let mut is_busy = world.load_mesh_queue.contains(&chunk_pos);
+
+                is_busy |= !ADJACENT_CHUNK_DIRECTIONS
+                    .iter()
+                    .map(|&offset| chunk_pos + offset)
+                    .all(|pos| world.chunks.contains_key(&pos));
+
+                if !is_busy {
+                    world.load_mesh_queue.push(chunk_pos);
+
+                    // Abort load
+                    let index_of_unloading = world
+                        .unload_mesh_queue
+                        .iter()
+                        .enumerate()
+                        .find_map(|(i, pos)| if pos == &chunk_pos { Some(i) } else { None });
+
+                    if let Some(i) = index_of_unloading {
+                        world.unload_mesh_queue.remove(i);
+                    }
+                } else {
+                    retries.push(chunk_pos);
+                }
+            }
+
+            loader.mesh_load_queue.append(&mut retries);
+        }
+    }
+
+    pub fn unload_mesh(mut loaders: Query<&mut ChunkLoader>, mut world: ResMut<World>) {
+        // Find all loaded and check if in range
+        for mut loader in loaders.iter_mut() {
+            for chunk_pos in loader.mesh_unload_queue.drain(..) {
+                world.unload_mesh_queue.push(chunk_pos);
+            }
         }
     }
 }

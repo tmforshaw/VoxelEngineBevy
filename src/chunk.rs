@@ -32,7 +32,7 @@ impl Chunk {
         noise.set_noise_type(NoiseType::Perlin);
         noise.set_frequency(0.025);
 
-        let mut voxels = [Voxel::new(VoxelType::Air); CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE];
+        let mut voxels = [Voxel::default(); CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE];
         (0..voxels.len()).for_each(|index| {
             let voxel_pos = VoxelPos::from_index(index);
             let world_pos = WorldPos::from_voxel_pos(voxel_pos, chunk_pos);
