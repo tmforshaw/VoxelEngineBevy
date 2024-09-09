@@ -2,9 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use bevy::{
     prelude::*,
-    render::{
-        mesh::Indices, primitives::Aabb, render_asset::RenderAssetUsages, render_resource::Face,
-    },
+    render::{mesh::Indices, primitives::Aabb, render_asset::RenderAssetUsages},
     tasks::{block_on, futures_lite::future, AsyncComputeTaskPool, Task},
 };
 
@@ -15,21 +13,17 @@ use crate::{
     chunk_mesh::ChunkMesh,
     culled_mesher,
     positions::ChunkPos,
+    rendering::{GlobalChunkMaterial, ATTRIBUTE_VOXEL},
 };
 
-// // A "high" random id should be used for custom attributes to ensure consistent sorting and avoid collisions with other attributes.
-// // See the MeshVertexAttribute docs for more info.
-// pub const ATTRIBUTE_VOXEL: MeshVertexAttribute =
-//     MeshVertexAttribute::new("Voxel", 988540919, VertexFormat::Uint32);
-
-const NORMALS_ARRAY: [[f32; 3]; 6] = [
-    [-1.0, 0.0, 0.0], // Left
-    [1.0, 0.0, 0.0],  // Right
-    [0.0, 0.0, 1.0],  // Back
-    [0.0, 0.0, -1.0], // Front
-    [0.0, 1.0, 0.0],  // Up
-    [0.0, -1.0, 0.0], // Down
-];
+// const NORMALS_ARRAY: [[f32; 3]; 6] = [
+//     [-1.0, 0.0, 0.0], // Left
+//     [1.0, 0.0, 0.0],  // Right
+//     [0.0, 0.0, 1.0],  // Back
+//     [0.0, 0.0, -1.0], // Front
+//     [0.0, 1.0, 0.0],  // Up
+//     [0.0, -1.0, 0.0], // Down
+// ];
 
 pub struct WorldPlugin;
 
@@ -77,9 +71,9 @@ impl World {
             ..
         } = world.as_mut();
 
-        let loader_g = loaders.single();
+        let g_loader = loaders.single();
         let loader_pos =
-            ChunkPos::from_vec3(loader_g.translation() - Vec3::splat(CHUNK_SIZE as f32 / 2.)) / 32;
+            ChunkPos::from_vec3(g_loader.translation() - Vec3::splat(CHUNK_SIZE as f32 / 2.)) / 32;
 
         load_data_queue.sort_by(|lhs, rhs| {
             lhs.distance_squared(loader_pos)
@@ -198,7 +192,8 @@ impl World {
         mut world: ResMut<World>,
         mut commands: Commands,
         mut meshes: ResMut<Assets<Mesh>>,
-        mut materials: ResMut<Assets<StandardMaterial>>,
+        // mut materials: ResMut<Assets<StandardMaterial>>,
+        g_chunk_material: Res<GlobalChunkMaterial>,
     ) {
         let World {
             mesh_tasks,
@@ -222,30 +217,38 @@ impl World {
                 continue;
             };
 
-            let vertices = mesh
-                .vertices
-                .iter()
-                .map(|vertex| {
-                    [
-                        vertex.pos.x as f32,
-                        vertex.pos.y as f32,
-                        vertex.pos.z as f32,
-                    ]
-                })
-                .collect::<Vec<[f32; 3]>>();
+            // let vertices = mesh
+            //     .vertices
+            //     .iter()
+            //     .map(|vertex| {
+            //         [
+            //             vertex.pos.x as f32,
+            //             vertex.pos.y as f32,
+            //             vertex.pos.z as f32,
+            //         ]
+            //     })
+            //     .collect::<Vec<[f32; 3]>>();
 
-            let normals = mesh
-                .vertices
-                .iter()
-                .map(|vertex| NORMALS_ARRAY[vertex.normal])
-                .collect::<Vec<[f32; 3]>>();
+            // let normals = mesh
+            //     .vertices
+            //     .iter()
+            //     .map(|vertex| NORMALS_ARRAY[vertex.normal])
+            //     .collect::<Vec<[f32; 3]>>();
 
             let bevy_mesh = Mesh::new(
                 bevy::render::mesh::PrimitiveTopology::TriangleList,
                 RenderAssetUsages::RENDER_WORLD,
             )
-            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vertices)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+            .with_inserted_attribute(
+                ATTRIBUTE_VOXEL,
+                mesh.vertices
+                    .iter()
+                    .cloned()
+                    .map(|v| v.into())
+                    .collect::<Vec<u32>>(),
+            )
+            // .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vertices)
+            // .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
             .with_inserted_indices(Indices::U32(mesh.indices.clone()));
 
             let mesh_handle = meshes.add(bevy_mesh);
@@ -255,11 +258,11 @@ impl World {
                 commands.entity(*entity).despawn();
             }
 
-            let hue = ((chunk_pos.x.unsigned_abs() as usize * CHUNK_SIZE
-                + chunk_pos.y.unsigned_abs() as usize)
-                * CHUNK_SIZE
-                + chunk_pos.z.unsigned_abs() as usize) as f32
-                * (360. / (CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) as f32);
+            // let hue = ((chunk_pos.x.unsigned_abs() as usize * CHUNK_SIZE
+            //     + chunk_pos.y.unsigned_abs() as usize)
+            //     * CHUNK_SIZE
+            //     + chunk_pos.z.unsigned_abs() as usize) as f32
+            //     * (360. / (CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) as f32);
 
             let chunk_entity = commands
                 .spawn((
@@ -271,11 +274,11 @@ impl World {
                             (chunk_pos.z * CHUNK_SIZE as i32) as f32,
                         ),
                         mesh: mesh_handle,
-                        material: materials.add(StandardMaterial {
-                            base_color: Color::hsv(hue, 1., 1.),
-                            cull_mode: Some(Face::Back),
-                            ..default()
-                        }),
+                        material: g_chunk_material.0.clone(),
+                        // material: materials.add(StandardMaterial {
+                        //     base_color: Color::hsv(hue, 1., 1.),
+                        //     ..default()
+                        // }),
                         ..default()
                     },
                 ))

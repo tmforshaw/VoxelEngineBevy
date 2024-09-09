@@ -1,6 +1,13 @@
 use std::f32::consts::PI;
 
-use bevy::{core::TaskPoolThreadAssignmentPolicy, prelude::*};
+use bevy::{
+    core::TaskPoolThreadAssignmentPolicy,
+    prelude::*,
+    render::{
+        settings::{RenderCreation, WgpuFeatures, WgpuSettings},
+        RenderPlugin,
+    },
+};
 use bevy_flycam::prelude::*;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_screen_diagnostics::{
@@ -8,6 +15,7 @@ use bevy_screen_diagnostics::{
 };
 
 use chunk_loading::{ChunkLoader, ChunkLoaderPlugin, CHUNK_LOAD_DISTANCE};
+use rendering::{ChunkMaterial, GlobalChunkMaterial, RenderingPlugin};
 use world::WorldPlugin;
 
 pub mod chunk;
@@ -16,11 +24,12 @@ pub mod chunk_loading;
 pub mod chunk_mesh;
 pub mod culled_mesher;
 pub mod positions;
+pub mod rendering;
 pub mod vertex;
 pub mod voxel;
 pub mod world;
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands, mut chunk_materials: ResMut<Assets<ChunkMaterial>>) {
     // light
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
@@ -39,6 +48,13 @@ fn setup(mut commands: Commands) {
         },
         FlyCam,
     ));
+
+    // Chunk shader material
+    commands.insert_resource(GlobalChunkMaterial(chunk_materials.add(ChunkMaterial {
+        reflectance: 0.5,
+        perceptual_roughness: 0.5,
+        metallic: 0.5,
+    })))
 }
 
 fn main() {
@@ -54,6 +70,13 @@ fn main() {
                     }),
                     ..default()
                 })
+                .set(RenderPlugin {
+                    render_creation: RenderCreation::Automatic(WgpuSettings {
+                        features: WgpuFeatures::POLYGON_MODE_LINE,
+                        ..default()
+                    }),
+                    ..default()
+                })
                 .set(TaskPoolPlugin {
                     task_pool_options: TaskPoolOptions {
                         async_compute: TaskPoolThreadAssignmentPolicy {
@@ -65,8 +88,7 @@ fn main() {
                     },
                 }),
         )
-        .add_plugins(ChunkLoaderPlugin)
-        .add_plugins(WorldPlugin)
+        .add_plugins((ChunkLoaderPlugin, WorldPlugin, RenderingPlugin))
         .add_plugins(NoCameraPlayerPlugin)
         .add_plugins(WorldInspectorPlugin::new())
         // .add_plugins(AssetInspectorPlugin::<Mesh>::default())
@@ -76,8 +98,8 @@ fn main() {
             ScreenEntityDiagnosticsPlugin,
         ))
         .insert_resource(MovementSettings {
-            sensitivity: 0.00015, // default: 0.00012
-            speed: 64.0,          // default: 12.0
+            sensitivity: 0.00015,
+            speed: 64.0,
         })
         .insert_resource(KeyBindings {
             move_descend: KeyCode::ControlLeft,

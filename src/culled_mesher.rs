@@ -3,7 +3,7 @@ use crate::{
     chunk_from_middle::ChunksFromMiddle,
     chunk_mesh::{generate_indices, ChunkMesh, Direction, Quad},
     positions::VoxelPos,
-    vertex::Vertex,
+    vertex::{Vertex, VertexU32},
     voxel::VoxelType,
 };
 
@@ -11,7 +11,7 @@ fn push_face(mesh: &mut ChunkMesh, dir: Direction, vertex_pos: VoxelPos, voxel_t
     let quad = Quad::from_dir(vertex_pos, dir);
 
     for corner in quad.corners.iter() {
-        mesh.vertices.push(Vertex::new(
+        mesh.vertices.push(VertexU32::new(
             (corner[0], corner[1], corner[2]).into(),
             dir,
             voxel_type,

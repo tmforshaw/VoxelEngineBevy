@@ -10,6 +10,12 @@ pub struct Vertex {
 #[derive(Copy, Clone)]
 pub struct VertexU32(u32);
 
+impl VertexU32 {
+    pub fn new(pos: VoxelPos, dir: Direction, voxel_type: VoxelType) -> Self {
+        Vertex::new(pos, dir, voxel_type).into()
+    }
+}
+
 impl Vertex {
     pub fn new(pos: VoxelPos, dir: Direction, voxel_type: VoxelType) -> Self {
         Self {
@@ -42,14 +48,14 @@ impl Vertex {
 
     pub fn to_u32(&self) -> VertexU32 {
         // Pos allocated 18 bits, 6 bits per component
-        // Normal allocated 7 bits
-        // Block type allocated 7 bits
+        // Normal allocated 3 bits
+        // Block type allocated 11 bits
         VertexU32(
             self.pos.x as u32
-                | (self.pos.z as u32) << 6u32
-                | (self.pos.y as u32) << 12u32
+                | (self.pos.y as u32) << 6u32
+                | (self.pos.z as u32) << 12u32
                 | (self.normal as u32) << 18u32
-                | (self.voxel_type as u32) << 25u32,
+                | (self.voxel_type as u32) << 21u32,
         )
     }
 }

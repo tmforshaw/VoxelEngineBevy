@@ -42,7 +42,6 @@ impl ChunksFromMiddle {
 
         // Take modulus of x, y, and z with respect to CHUNK_SIZE, adding CHUNK_SIZE so that negative values don't appear
         let voxel_pos = voxel_pos % CHUNK_SIZE;
-
         let chunk_index = chunk_pos_to_index_bounds(chunk_pos, CHUNKS_FROM_MIDDLE_SIZE as u32);
 
         &(&self.chunks[chunk_index])[voxel_pos]

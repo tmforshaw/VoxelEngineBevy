@@ -1,4 +1,4 @@
-use crate::{positions::VoxelPos, vertex::Vertex};
+use crate::{positions::VoxelPos, vertex::Vertex, vertex::VertexU32};
 
 #[derive(Copy, Clone, Debug)]
 #[repr(u8)]
@@ -26,7 +26,8 @@ impl Direction {
 
 #[derive(Default, Clone)]
 pub struct ChunkMesh {
-    pub vertices: Vec<Vertex>,
+    // pub vertices: Vec<Vertex>,
+    pub vertices: Vec<VertexU32>,
     pub indices: Vec<u32>,
 }
 
