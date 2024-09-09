@@ -13,7 +13,8 @@ fn push_face(mesh: &mut ChunkMesh, dir: Direction, vertex_pos: VoxelPos, voxel_t
     for corner in quad.corners.iter() {
         mesh.vertices.push(VertexU32::new(
             (corner[0], corner[1], corner[2]).into(),
-            dir,
+            0,
+            dir.get_normal_index(),
             voxel_type,
         ));
     }

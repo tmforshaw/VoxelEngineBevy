@@ -11,7 +11,8 @@ use crate::{
     chunk_from_middle::ChunksFromMiddle,
     chunk_loading::{ChunkLoader, MAX_DATA_TASKS, MAX_MESH_TASKS},
     chunk_mesh::ChunkMesh,
-    culled_mesher,
+    culled_mesher, greedy_mesher,
+    lod::Lod,
     positions::ChunkPos,
     rendering::{GlobalChunkMaterial, ATTRIBUTE_VOXEL},
 };
@@ -135,7 +136,10 @@ impl World {
             };
 
             let task = task_pool
-                .spawn(async move { culled_mesher::build_chunk_mesh(&chunks_from_middle) });
+                // .spawn(async move { culled_mesher::build_chunk_mesh(&chunks_from_middle) });
+                .spawn(
+                    async move { greedy_mesher::build_chunk_mesh(&chunks_from_middle, Lod::L32) },
+                );
 
             mesh_tasks.push((chunk_pos, Some(task)));
         }

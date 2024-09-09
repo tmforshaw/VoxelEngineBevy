@@ -233,8 +233,8 @@ impl VoxelPos {
         (self.x, self.y, self.z)
     }
 
-    pub fn to_index(pos: VoxelPos) -> usize {
-        pos.x + (pos.y + pos.z * CHUNK_SIZE) * CHUNK_SIZE
+    pub fn to_index(&self) -> usize {
+        self.x + (self.y + self.z * CHUNK_SIZE) * CHUNK_SIZE
     }
 
     pub fn from_index(index: usize) -> VoxelPos {

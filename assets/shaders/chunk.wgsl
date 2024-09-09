@@ -25,9 +25,10 @@ struct Vertex {
 struct VertexOut {
     @builtin(position) clip_pos: vec4<f32>,
     @location(0) world_normal: vec3<f32>,
-    @location(1) world_pos: vec4<f32>,
-    @location(2) blend_colour: vec3<f32>,
-    @location(3) instance_index: u32,
+    @location(1) ambient: f32,
+    @location(2) world_pos: vec4<f32>,
+    @location(3) blend_colour: vec3<f32>,
+    @location(4) instance_index: u32,
 }
 
 var<private> normals: array<vec3<f32>, 6> = array<vec3<f32>, 6>(
@@ -38,6 +39,8 @@ var<private> normals: array<vec3<f32>, 6> = array<vec3<f32>, 6>(
 	vec3<f32>(0.0, 1.0, 0.0), // Up
 	vec3<f32>(0.0, -1.0, 0.0) // Down
 );
+
+var<private> ambient_lerps: vec4<f32> = vec4<f32>(1.0,0.7,0.5,0.15);
 
 var<private> block_colour: array<vec3<f32>,2> = array<vec3<f32>,2>(
 	vec3<f32>(0.0, 0.0, 0.0), // air
@@ -56,19 +59,20 @@ fn vertex(vertex: Vertex) -> VertexOut {
     let x = f32(vertex.vert_data & x_bits(6u));
     let y = f32((vertex.vert_data >> 6u) & x_bits(6u));
     let z = f32((vertex.vert_data >> 12u) & x_bits(6u));
-    let normal_index = (vertex.vert_data >> 18u) & x_bits(3u);
-    let block_index = (vertex.vert_data >> 21u) & x_bits(11u);
+    let ao = (vertex.vert_data >> 18u) & x_bits(3u);
+    let normal_index = (vertex.vert_data >> 21u) & x_bits(3u);
+    let block_index = (vertex.vert_data >> 24u) & x_bits(11u);
 
     let local_pos = vec4<f32>(x, y, z, 1.0); 
     let world_pos = get_world_from_local(vertex.instance_index) * local_pos;
-    let normal = normals[normal_index];
 
     out.clip_pos = mesh_position_local_to_clip(
         get_world_from_local(vertex.instance_index),
         local_pos
     );
+    out.world_normal = mesh_normal_local_to_world(normals[normal_index], vertex.instance_index);
+    out.ambient = ambient_lerps[ao];
     out.world_pos = world_pos;
-    out.world_normal = mesh_normal_local_to_world(normal, vertex.instance_index);
 
     let high = vec3<f32>(5.00, 0.2, 5.0);
     let low = vec3<f32>(1.0, 1.0, 9.0);
@@ -93,7 +97,7 @@ fn fragment(input: VertexOut) -> FragmentOutput {
     pbr_input.world_position = input.world_pos;
     pbr_input.world_normal = prepare_world_normal(input.world_normal, false, false);
 
-    pbr_input.material.base_color = vec4<f32>(input.blend_colour, 1.0);
+    pbr_input.material.base_color = vec4<f32>(input.blend_colour * input.ambient, 1.0);
 
     pbr_input.material.reflectance = chunk_material.reflectance;
     pbr_input.material.perceptual_roughness = chunk_material.perceptual_roughness;

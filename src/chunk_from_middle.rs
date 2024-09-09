@@ -47,6 +47,11 @@ impl ChunksFromMiddle {
         &(&self.chunks[chunk_index])[voxel_pos]
     }
 
+    pub fn get_voxel_no_neighbour(&self, voxel_pos: VoxelPos) -> &Voxel {
+        //  TODO i dont know why 13 is the middle chunk
+        &(&self.chunks[13])[voxel_pos]
+    }
+
     // Returns current, back, left, down
     pub fn get_adjacent_voxels(
         &self,
@@ -63,5 +68,26 @@ impl ChunksFromMiddle {
         let down = self.get_voxel((pos_ivec3.x, pos_ivec3.y - 1, pos_ivec3.z).into());
 
         (current, back, left, down)
+    }
+
+    pub fn are_all_voxels_same(&self) -> bool {
+        // If there is only one voxel, keep checking, otherwise return false
+        if self.chunks[0].len() == 1 {
+            let block = self.chunks[0][0];
+            for chunk in self.chunks[1..].iter() {
+                if chunk.len() == 1 {
+                    // If the first block of each chunk is different to the first chunk's then return false
+                    if block.voxel_type != chunk[0].voxel_type {
+                        return false;
+                    }
+                } else {
+                    return false;
+                }
+            }
+        } else {
+            return false;
+        }
+
+        true
     }
 }

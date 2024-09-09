@@ -8,6 +8,7 @@ use crate::{
 pub const NOISE_SEED: u64 = 0;
 
 pub const CHUNK_SIZE: usize = 32;
+pub const CHUNK_SIZE_PADDED: usize = CHUNK_SIZE + 2;
 
 #[derive(Clone, Debug)]
 pub struct Chunk {
@@ -77,10 +78,18 @@ impl Chunk {
         let mut chunk = Self::default();
 
         for (voxel_pos, voxel_type) in voxels {
-            chunk.voxels[VoxelPos::to_index(voxel_pos)].voxel_type = voxel_type;
+            chunk.voxels[voxel_pos.to_index()].voxel_type = voxel_type;
         }
 
         chunk
+    }
+
+    pub fn len(&self) -> usize {
+        self.voxels.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 }
 
@@ -102,12 +111,12 @@ impl std::ops::Index<VoxelPos> for Chunk {
     type Output = Voxel;
 
     fn index(&self, index: VoxelPos) -> &Self::Output {
-        &self.voxels[VoxelPos::to_index(index)]
+        &self.voxels[index.to_index()]
     }
 }
 
 impl std::ops::IndexMut<VoxelPos> for Chunk {
     fn index_mut(&mut self, index: VoxelPos) -> &mut Self::Output {
-        &mut self.voxels[VoxelPos::to_index(index)]
+        &mut self.voxels[index.to_index()]
     }
 }

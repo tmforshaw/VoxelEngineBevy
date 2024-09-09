@@ -3,6 +3,7 @@ use crate::{chunk_mesh::Direction, positions::VoxelPos, voxel::VoxelType};
 #[derive(Copy, Clone, Debug)]
 pub struct Vertex {
     pub pos: VoxelPos,
+    pub ao: u32,
     pub normal: usize, // Index of the normal
     pub voxel_type: VoxelType,
 }
@@ -11,23 +12,25 @@ pub struct Vertex {
 pub struct VertexU32(u32);
 
 impl VertexU32 {
-    pub fn new(pos: VoxelPos, dir: Direction, voxel_type: VoxelType) -> Self {
-        Vertex::new(pos, dir, voxel_type).into()
+    pub fn new(pos: VoxelPos, ao: u32, normal_index: usize, voxel_type: VoxelType) -> Self {
+        Vertex::new(pos, ao, normal_index, voxel_type).into()
     }
 }
 
 impl Vertex {
-    pub fn new(pos: VoxelPos, dir: Direction, voxel_type: VoxelType) -> Self {
+    pub fn new(pos: VoxelPos, ao: u32, normal_index: usize, voxel_type: VoxelType) -> Self {
         Self {
             pos,
-            normal: dir.get_normal_index(),
+            ao,
+            normal: normal_index,
             voxel_type,
         }
     }
 
     pub fn from_u32(vertex: VertexU32) -> Self {
         let pos_mask = 0b111111u32; // 6 1s to mask each position component
-        let seven_bits_mask = 0b1111111u32; // 7 1s, shifted, to mask voxel type
+        let three_bits_mask = 0b111u32; // 3 1s to mask ao and normal
+        let eight_bits_mask = 0b11111111u32; // 8 1s to mask voxel type
 
         let pos = VoxelPos {
             x: (vertex.0 & pos_mask) as usize,
@@ -35,13 +38,15 @@ impl Vertex {
             z: ((vertex.0 & (pos_mask << 6u32)) >> 6u32) as usize,
         };
 
-        let normal = ((vertex.0 & (seven_bits_mask << 18u32)) >> 18u32) as usize;
+        let ao = ((vertex.0 & (three_bits_mask << 18u32)) >> 18u32) as u32;
+        let normal = ((vertex.0 & (three_bits_mask << 21u32)) >> 21u32) as usize;
 
-        let voxel_type = ((vertex.0 & (seven_bits_mask << 25u32)) >> 25u32).into();
+        let voxel_type = ((vertex.0 & (eight_bits_mask << 24u32)) >> 24u32).into();
 
         Self {
             pos,
             normal,
+            ao,
             voxel_type,
         }
     }
@@ -54,8 +59,9 @@ impl Vertex {
             self.pos.x as u32
                 | (self.pos.y as u32) << 6u32
                 | (self.pos.z as u32) << 12u32
-                | (self.normal as u32) << 18u32
-                | (self.voxel_type as u32) << 21u32,
+                | (self.ao as u32) << 18u32
+                | (self.normal as u32) << 21u32
+                | (self.voxel_type as u32) << 24u32,
         )
     }
 }
