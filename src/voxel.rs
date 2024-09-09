@@ -1,5 +1,3 @@
-use crate::chunk::CHUNK_SIZE;
-
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub enum VoxelType {
     Air,
@@ -8,10 +6,7 @@ pub enum VoxelType {
 
 impl VoxelType {
     pub fn is_solid(&self) -> bool {
-        match self {
-            VoxelType::Block => true,
-            _ => false,
-        }
+        !matches!(self, VoxelType::Air)
     }
 }
 

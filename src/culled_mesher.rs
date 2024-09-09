@@ -6,7 +6,6 @@ use bevy::{
         render_asset::RenderAssetUsages,
         render_resource::Face,
     },
-    utils::tracing::instrument::WithSubscriber,
 };
 
 use crate::{

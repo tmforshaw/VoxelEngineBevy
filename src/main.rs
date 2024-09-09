@@ -1,13 +1,13 @@
 use std::f32::consts::PI;
 
-use bevy::{prelude::*, window::Cursor};
+use bevy::prelude::*;
 use bevy_flycam::prelude::*;
-use bevy_inspector_egui::quick::{AssetInspectorPlugin, WorldInspectorPlugin};
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_screen_diagnostics::{
     ScreenDiagnosticsPlugin, ScreenEntityDiagnosticsPlugin, ScreenFrameDiagnosticsPlugin,
 };
 
-use chunk::Chunk;
+use chunk_loading::ChunkLoaderPlugin;
 use world::World;
 
 pub mod chunk;
@@ -50,6 +50,7 @@ fn main() {
             }),
             ..default()
         }))
+        .add_plugins(ChunkLoaderPlugin)
         .add_plugins(NoCameraPlayerPlugin)
         .add_plugins(WorldInspectorPlugin::new())
         // .add_plugins(AssetInspectorPlugin::<Mesh>::default())
