@@ -1,10 +1,11 @@
 use std::collections::VecDeque;
 
-use bevy::prelude::*;
+use bevy::{prelude::*, utils::HashSet};
 
 use crate::{
     chunk::CHUNK_SIZE,
     positions::{index_to_chunk_pos_bounds, ChunkPos},
+    world::World,
 };
 
 pub struct ChunkLoaderPlugin;
@@ -82,7 +83,101 @@ impl ChunkLoader {
         sampling_offsets
     }
 
-    fn detect_move(mut loaders: Query<(&mut ChunkLoader, &GlobalTransform)>) {
+    fn detect_move(
+        mut loaders: Query<(&mut ChunkLoader, &GlobalTransform)>,
+        mut world: ResMut<World>,
+    ) {
+        for (mut loader, g_transform) in loaders.iter_mut() {
+            let chunk_pos =
+                ChunkPos::from_vec3((g_transform.translation() - Vec3::splat(16.0)) * (1. / 32.));
+
+            let prev_chunk_pos = loader.prev_chunk_pos;
+            let chunk_pos_has_changed = chunk_pos != prev_chunk_pos;
+            if !chunk_pos_has_changed {
+                return;
+            }
+            loader.prev_chunk_pos = chunk_pos;
+
+            let load_data_area = loader
+                .data_sampling_offsets
+                .iter()
+                .map(|offset| chunk_pos + *offset)
+                .collect::<HashSet<ChunkPos>>();
+
+            let unload_data_area = loader
+                .data_sampling_offsets
+                .iter()
+                .map(|offset| prev_chunk_pos + *offset)
+                .collect::<HashSet<ChunkPos>>();
+
+            let load_mesh_area = loader
+                .mesh_sampling_offsets
+                .iter()
+                .map(|offset| chunk_pos + *offset)
+                .collect::<HashSet<ChunkPos>>();
+
+            let unload_mesh_area = loader
+                .mesh_sampling_offsets
+                .iter()
+                .map(|offset| prev_chunk_pos + *offset)
+                .collect::<HashSet<ChunkPos>>();
+
+            let data_load = load_data_area.difference(&unload_data_area);
+            let data_unload = unload_data_area.difference(&load_data_area);
+            let mesh_load = load_mesh_area.difference(&unload_mesh_area);
+            let mesh_unload = unload_mesh_area.difference(&load_mesh_area);
+
+            loader.data_load_queue.extend(data_load);
+            loader.data_unload_queue.extend(data_unload);
+            loader.mesh_load_queue.extend(mesh_load);
+            loader.mesh_unload_queue.extend(mesh_unload);
+
+            let ChunkLoader {
+                data_load_queue,
+                mesh_load_queue,
+                data_unload_queue,
+                mesh_unload_queue,
+                ..
+            } = loader.as_mut();
+
+            // Remove resolved chunk data from queue
+            for pos in data_unload_queue.iter() {
+                if let Some((i, _)) = world
+                    .load_data_queue
+                    .iter()
+                    .enumerate()
+                    .find(|(_i, world_chunk_pos)| *world_chunk_pos == pos)
+                {
+                    world.load_data_queue.remove(i);
+                }
+            }
+
+            // Remove resolved meshes from queue
+            for pos in mesh_unload_queue.iter() {
+                if let Some((i, _)) = world
+                    .load_mesh_queue
+                    .iter()
+                    .enumerate()
+                    .find(|(_i, world_chunk_pos)| *world_chunk_pos == pos)
+                {
+                    world.load_mesh_queue.remove(i);
+                }
+            }
+
+            // Remove the unloads from load
+            data_load_queue.retain(|pos| data_unload_queue.contains(pos));
+            mesh_load_queue.retain(|pos| mesh_unload_queue.contains(pos));
+
+            // Sort data and mesh load queues by distance to chunk_pos
+            loader.data_load_queue.sort_by(|lhs, rhs| {
+                lhs.distance_squared(chunk_pos)
+                    .cmp(&rhs.distance_squared(chunk_pos))
+            });
+            loader.mesh_load_queue.sort_by(|lhs, rhs| {
+                lhs.distance_squared(chunk_pos)
+                    .cmp(&rhs.distance_squared(chunk_pos))
+            });
+        }
         todo!()
     }
 }

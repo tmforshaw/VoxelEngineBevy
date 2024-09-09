@@ -79,6 +79,10 @@ impl ChunkPos {
         }
     }
 
+    pub fn from_vec3(pos: bevy::math::Vec3) -> Self {
+        (pos.x as i32, pos.y as i32, pos.z as i32).into()
+    }
+
     pub fn from_tuple(pos: (i32, i32, i32)) -> Self {
         Self {
             x: pos.0,

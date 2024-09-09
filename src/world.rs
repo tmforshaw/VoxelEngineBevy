@@ -19,6 +19,8 @@ pub const WORLD_SIZE: (usize, usize, usize) = (4 * 32, 2 * 32, 4 * 32);
 #[derive(Resource, Default)]
 pub struct World {
     pub chunks: HashMap<ChunkPos, Arc<Mutex<Chunk>>>,
+    pub load_data_queue: Vec<ChunkPos>,
+    pub load_mesh_queue: Vec<ChunkPos>,
 }
 
 impl World {
