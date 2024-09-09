@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use bevy::prelude::*;
+use bevy::{core::TaskPoolThreadAssignmentPolicy, prelude::*};
 use bevy_flycam::prelude::*;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_screen_diagnostics::{
@@ -41,15 +41,28 @@ fn setup(mut commands: Commands) {
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: String::from("Ooga Booga Cube"),
-                name: Some(String::from("Name of thing")),
-                present_mode: bevy::window::PresentMode::AutoNoVsync,
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: String::from("Ooga Booga Cube"),
+                        name: Some(String::from("Name of thing")),
+                        present_mode: bevy::window::PresentMode::AutoNoVsync,
+                        ..default()
+                    }),
+                    ..default()
+                })
+                .set(TaskPoolPlugin {
+                    task_pool_options: TaskPoolOptions {
+                        async_compute: TaskPoolThreadAssignmentPolicy {
+                            min_threads: 1,
+                            max_threads: 8,
+                            percent: 0.75,
+                        },
+                        ..default()
+                    },
+                }),
+        )
         .add_plugins(ChunkLoaderPlugin)
         .add_plugins(NoCameraPlayerPlugin)
         .add_plugins(WorldInspectorPlugin::new())

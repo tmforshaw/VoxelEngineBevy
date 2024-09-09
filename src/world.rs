@@ -3,23 +3,35 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use bevy::prelude::*;
+use bevy::{
+    prelude::*,
+    tasks::{AsyncComputeTaskPool, Task},
+};
 
 use crate::{
     chunk::{Chunk, CHUNK_SIZE},
-    chunk_mesh,
+    chunk_loading::ChunkLoader,
+    chunk_mesh::{self, ChunkMesh},
+    culled_mesher,
     positions::{ChunkPos, VoxelPos, WorldPos},
     voxel::{Voxel, VoxelType},
 };
 
 // World size in blocks
 pub const WORLD_SIZE: (usize, usize, usize) = (4 * 32, 2 * 32, 4 * 32);
+pub const MAX_DATA_TASKS: usize = 64;
+pub const MAX_MESH_TASKS: usize = 64;
 
 #[derive(Resource, Default)]
 pub struct World {
     pub chunks: HashMap<ChunkPos, Arc<Mutex<Chunk>>>,
     pub load_data_queue: Vec<ChunkPos>,
     pub load_mesh_queue: Vec<ChunkPos>,
+    pub unload_data_queue: Vec<ChunkPos>,
+    pub unload_mesh_queue: Vec<ChunkPos>,
+    pub data_tasks: HashMap<IVec3, Option<Task<Chunk>>>,
+    pub mesh_tasks: Vec<(IVec3, Option<Task<Option<ChunkMesh>>>)>,
+    pub chunk_entities: HashMap<IVec3, Entity>,
 }
 
 impl World {
@@ -164,4 +176,109 @@ impl World {
 
         (current, back, left, down)
     }
+}
+
+// Start data building tasks for the chunks in range
+pub fn start_data_tasks(
+    mut world: ResMut<World>,
+    loaders: Query<&GlobalTransform, With<ChunkLoader>>,
+) {
+    let task_pool = AsyncComputeTaskPool::get();
+
+    let World {
+        load_data_queue,
+        data_tasks,
+        ..
+    } = world.as_mut();
+
+    let loader_g = loaders.single();
+    let loader_pos = ChunkPos::from_vec3(
+        (loader_g.translation() - Vec3::splat(CHUNK_SIZE as f32 / 2.)) * (1. / 32.),
+    );
+    load_data_queue.sort_by(|lhs, rhs| {
+        lhs.distance_squared(loader_pos)
+            .cmp(&rhs.distance_squared(loader_pos))
+    });
+
+    let tasks_left = (MAX_DATA_TASKS as i32 - data_tasks.len() as i32)
+        .min(load_data_queue.len() as i32)
+        .max(0) as usize;
+
+    for chunk_pos in load_data_queue.drain(0..tasks_left) {
+        let task = task_pool.spawn(async move { Chunk::new_from_noise(chunk_pos) });
+
+        data_tasks.insert(chunk_pos.to_ivec3(), Some(task));
+    }
+}
+
+// Destroy chunk data
+pub fn unload_data(mut world: ResMut<World>) {
+    let World {
+        unload_data_queue,
+        chunks,
+        ..
+    } = world.as_mut();
+
+    for chunk_pos in unload_data_queue.drain(..) {
+        chunks.remove(&chunk_pos);
+    }
+}
+
+pub fn start_mesh_tasks(
+    mut world: ResMut<World>,
+    loaders: Query<&GlobalTransform, With<ChunkLoader>>,
+) {
+    let task_pool = AsyncComputeTaskPool::get();
+
+    let World {
+        chunks,
+        load_mesh_queue,
+        mesh_tasks,
+        ..
+    } = world.as_mut();
+
+    let loader_g = loaders.single();
+    let loader_pos = ChunkPos::from_vec3(
+        (loader_g.translation() - Vec3::splat(CHUNK_SIZE as f32 / 2.)) * (1. / 32.),
+    );
+
+    load_mesh_queue.sort_by(|lhs, rhs| {
+        lhs.distance_squared(loader_pos)
+            .cmp(&rhs.distance_squared(loader_pos))
+    });
+
+    let tasks_left = (MAX_MESH_TASKS as i32 - mesh_tasks.len() as i32)
+        .min(load_mesh_queue.len() as i32)
+        .max(0) as usize;
+    for chunk_pos in load_mesh_queue.drain(0..tasks_left) {
+        // let Some(chunk_refs) = ChunkRefs::try_new(chunks, chunk_data) else {
+        //     continue;
+        // };
+
+        // let task = culled_mesher::build_chunk_mesh(, , , )
+
+        // mesh_tasks.push((chunk_pos, Some(task)));
+    }
+}
+
+// Destroy queued chunk mesh entities
+pub fn unload_mesh(mut commands: Commands, mut world: ResMut<World>) {
+    let World {
+        unload_mesh_queue,
+        chunk_entities,
+        ..
+    } = world.as_mut();
+
+    let mut retry = Vec::new();
+
+    for chunk_pos in unload_mesh_queue.drain(..) {
+        let Some(chunk_id) = chunk_entities.remove(&chunk_pos.to_ivec3()) else {
+            continue;
+        };
+        if let Some(mut entity_commands) = commands.get_entity(chunk_id) {
+            entity_commands.despawn();
+        };
+    }
+
+    unload_mesh_queue.append(&mut retry);
 }

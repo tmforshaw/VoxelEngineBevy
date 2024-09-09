@@ -88,8 +88,9 @@ impl ChunkLoader {
         mut world: ResMut<World>,
     ) {
         for (mut loader, g_transform) in loaders.iter_mut() {
-            let chunk_pos =
-                ChunkPos::from_vec3((g_transform.translation() - Vec3::splat(16.0)) * (1. / 32.));
+            let chunk_pos = ChunkPos::from_vec3(
+                (g_transform.translation() - Vec3::splat(CHUNK_SIZE as f32 / 2.)) * (1. / 32.),
+            );
 
             let prev_chunk_pos = loader.prev_chunk_pos;
             let chunk_pos_has_changed = chunk_pos != prev_chunk_pos;
@@ -178,6 +179,5 @@ impl ChunkLoader {
                     .cmp(&rhs.distance_squared(chunk_pos))
             });
         }
-        todo!()
     }
 }

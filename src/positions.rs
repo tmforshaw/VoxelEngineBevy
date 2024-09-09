@@ -2,6 +2,8 @@
 
 use std::ops::{Add, AddAssign, Sub, SubAssign};
 
+use bevy::math::IVec3;
+
 use crate::chunk::CHUNK_SIZE;
 
 #[derive(Copy, Clone, Debug)]
@@ -81,6 +83,10 @@ impl ChunkPos {
 
     pub fn from_vec3(pos: bevy::math::Vec3) -> Self {
         (pos.x as i32, pos.y as i32, pos.z as i32).into()
+    }
+
+    pub fn to_ivec3(&self) -> IVec3 {
+        IVec3::new(self.x as i32, self.y as i32, self.z as i32)
     }
 
     pub fn from_tuple(pos: (i32, i32, i32)) -> Self {
