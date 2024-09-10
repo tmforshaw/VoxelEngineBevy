@@ -1,14 +1,10 @@
 use bracket_noise::prelude::*;
 
 use crate::{
+    constants::{CHUNK_SIZE, NOISE_FREQUENCY, NOISE_HEIGHT_SCALE, NOISE_SEED},
     positions::{ChunkPos, VoxelPos, WorldPos},
     voxel::{Voxel, VoxelType},
 };
-
-pub const NOISE_SEED: u64 = 0;
-
-pub const CHUNK_SIZE: usize = 32;
-pub const CHUNK_SIZE_PADDED: usize = CHUNK_SIZE + 2;
 
 #[derive(Clone, Debug)]
 pub struct Chunk {
@@ -30,18 +26,29 @@ impl Chunk {
 
     pub fn new_from_noise(chunk_pos: ChunkPos) -> Self {
         let mut noise = FastNoise::seeded(NOISE_SEED);
-        noise.set_noise_type(NoiseType::Perlin);
-        noise.set_frequency(0.025);
+        noise.set_noise_type(NoiseType::PerlinFractal);
+        noise.set_frequency(NOISE_FREQUENCY * 1.5);
+        noise.set_fractal_octaves(8);
+        noise.set_fractal_lacunarity(2.);
+        noise.set_fractal_gain(0.25);
 
         let mut voxels = [Voxel::default(); CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE];
         (0..voxels.len()).for_each(|index| {
             let voxel_pos = VoxelPos::from_index(index);
             let world_pos = WorldPos::from_voxel_pos(voxel_pos, chunk_pos);
 
-            let noise_val = noise.get_noise(world_pos.x as f32 + 0.5, world_pos.z as f32 + 0.5);
-            let height = noise_val * 30.0;
+            // let overhang =
+            //     noise.get_noise3d(voxel_pos.x as f32, voxel_pos.y as f32, voxel_pos.z as f32)
+            //         * 55.0;
+
+            let noise_val =
+                noise.get_noise3d(world_pos.x as f32, world_pos.y as f32, world_pos.z as f32);
+            let height = noise_val * NOISE_HEIGHT_SCALE;
 
             let solid = height > world_pos.y as f32;
+            // let solid = height > NOISE_HEIGHT_SCALE * 0.25;
+
+            // let solid = world_pos.y < 10;
 
             let voxel_type = if solid {
                 VoxelType::Block

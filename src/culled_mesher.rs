@@ -1,9 +1,9 @@
 use crate::{
-    chunk::CHUNK_SIZE,
     chunk_from_middle::ChunksFromMiddle,
     chunk_mesh::{generate_indices, ChunkMesh, Direction, Quad},
+    constants::CHUNK_SIZE,
     positions::VoxelPos,
-    vertex::{Vertex, VertexU32},
+    vertex::VertexU32,
     voxel::VoxelType,
 };
 

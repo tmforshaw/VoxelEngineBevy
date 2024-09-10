@@ -2,12 +2,7 @@ use std::collections::VecDeque;
 
 use bevy::math::IVec3;
 
-use crate::{
-    lod::Lod,
-    positions::VoxelPos,
-    vertex::{Vertex, VertexU32},
-    voxel::VoxelType,
-};
+use crate::{lod::Lod, positions::VoxelPos, vertex::VertexU32, voxel::VoxelType};
 
 #[derive(Copy, Clone, Debug)]
 #[repr(u8)]

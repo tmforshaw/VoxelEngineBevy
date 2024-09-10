@@ -3,12 +3,11 @@ use std::{collections::HashMap, sync::Arc};
 use bevy::math::IVec3;
 
 use crate::{
-    chunk::{Chunk, CHUNK_SIZE},
+    chunk::Chunk,
+    constants::{CHUNKS_FROM_MIDDLE_SIZE, CHUNK_SIZE},
     positions::{chunk_pos_to_index_bounds, index_to_chunk_pos_bounds, ChunkPos, VoxelPos},
     voxel::Voxel,
 };
-
-pub const CHUNKS_FROM_MIDDLE_SIZE: usize = 3;
 
 // pointers to chunk data, a middle one with all their neighbours
 #[derive(Clone)]

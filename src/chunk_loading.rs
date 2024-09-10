@@ -3,51 +3,10 @@ use std::collections::VecDeque;
 use bevy::{prelude::*, utils::HashSet};
 
 use crate::{
-    chunk::CHUNK_SIZE,
+    constants::{ADJACENT_CHUNK_DIRECTIONS, CHUNK_SIZE, MAX_CHUNK_LOADS, MAX_DATA_TASKS},
     positions::{index_to_chunk_pos_bounds, ChunkPos},
     world::World,
 };
-
-pub const CHUNK_LOAD_DISTANCE: u32 = 12;
-
-pub const MAX_DATA_TASKS: usize = 64;
-pub const MAX_MESH_TASKS: usize = 64;
-pub const MAX_CHUNK_LOADS: usize = 26000;
-
-pub const ADJACENT_CHUNK_DIRECTIONS: [ChunkPos; 27] = [
-    ChunkPos { x: 0, y: 0, z: 0 },
-    ChunkPos { x: 0, y: -1, z: -1 },
-    ChunkPos { x: -1, y: 0, z: -1 },
-    ChunkPos { x: -1, y: 0, z: 1 },
-    ChunkPos { x: -1, y: -1, z: 0 },
-    ChunkPos {
-        x: -1,
-        y: -1,
-        z: -1,
-    },
-    ChunkPos { x: -1, y: 1, z: -1 },
-    ChunkPos { x: -1, y: -1, z: 1 },
-    ChunkPos { x: -1, y: 1, z: 1 },
-    ChunkPos { x: 1, y: 0, z: -1 },
-    ChunkPos { x: 1, y: -1, z: -1 },
-    ChunkPos { x: 0, y: 1, z: -1 },
-    ChunkPos { x: 1, y: 1, z: 1 },
-    ChunkPos { x: 1, y: -1, z: 1 },
-    ChunkPos { x: 1, y: 1, z: -1 },
-    ChunkPos { x: 1, y: 1, z: 0 },
-    ChunkPos { x: 0, y: 1, z: 1 },
-    ChunkPos { x: 1, y: -1, z: 0 },
-    ChunkPos { x: 0, y: -1, z: 1 },
-    ChunkPos { x: 1, y: 0, z: 1 },
-    ChunkPos { x: -1, y: 1, z: 0 },
-    // von neumann neighbour
-    ChunkPos { x: -1, y: 0, z: 0 },
-    ChunkPos { x: 1, y: 0, z: 0 },
-    ChunkPos { x: 0, y: -1, z: 0 },
-    ChunkPos { x: 0, y: 1, z: 0 },
-    ChunkPos { x: 0, y: 0, z: -1 },
-    ChunkPos { x: 0, y: 0, z: 1 },
-];
 
 pub struct ChunkLoaderPlugin;
 

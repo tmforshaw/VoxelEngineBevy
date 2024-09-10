@@ -1,32 +1,17 @@
 use std::collections::HashMap;
 
-use bevy::{
-    math::{IVec2, IVec3},
-    pbr::generate_view_layouts,
-};
+use bevy::math::IVec3;
 
 use crate::{
-    chunk::{CHUNK_SIZE, CHUNK_SIZE_PADDED},
-    chunk_from_middle::{ChunksFromMiddle, CHUNKS_FROM_MIDDLE_SIZE},
+    chunk_from_middle::ChunksFromMiddle,
     chunk_mesh::{generate_indices, ChunkMesh, FaceDir, GreedyQuad},
+    constants::{ADJACENT_AO_DIRS, CHUNKS_FROM_MIDDLE_SIZE, CHUNK_SIZE, CHUNK_SIZE_PADDED},
     lod::Lod,
     positions::{chunk_pos_to_index_bounds, VoxelPos},
     voxel::Voxel,
 };
 
-pub const ADJACENT_AO_DIRS: [IVec2; 9] = [
-    IVec2::new(-1, -1),
-    IVec2::new(-1, 0),
-    IVec2::new(-1, 1),
-    IVec2::new(0, -1),
-    IVec2::new(0, 0),
-    IVec2::new(0, 1),
-    IVec2::new(1, -1),
-    IVec2::new(1, 0),
-    IVec2::new(1, 1),
-];
-
-pub fn greedy_mesh_binary_plane(mut data: [u32; 32], lod_size: usize) -> Vec<GreedyQuad> {
+pub fn greedy_mesh_binary_plane(mut data: [u32; CHUNK_SIZE], lod_size: usize) -> Vec<GreedyQuad> {
     let mut greedy_quads = Vec::new();
 
     for row in 0..data.len() {
@@ -177,8 +162,8 @@ pub fn build_chunk_mesh(chunks_from_middle: &ChunksFromMiddle, lod: Lod) -> Opti
     }
 
     // Greedy meshing planes for all 6 axes
-    // key(voxel + ao) -> HashMap<axis(0-32), binary_plane>
-    let mut data: [HashMap<u32, HashMap<u32, [u32; 32]>>; 6] = [
+    // key(voxel + ao) -> HashMap<axis(0-CHUNK_SIZE), binary_plane>
+    let mut data: [HashMap<u32, HashMap<u32, [u32; CHUNK_SIZE]>>; 6] = [
         HashMap::new(),
         HashMap::new(),
         HashMap::new(),

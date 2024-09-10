@@ -4,7 +4,7 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, RemAssign, S
 
 use bevy::math::IVec3;
 
-use crate::chunk::CHUNK_SIZE;
+use crate::constants::CHUNK_SIZE;
 
 #[derive(Copy, Clone, Debug)]
 pub struct WorldPos {

@@ -7,24 +7,16 @@ use bevy::{
 };
 
 use crate::{
-    chunk::{Chunk, CHUNK_SIZE},
+    chunk::Chunk,
     chunk_from_middle::ChunksFromMiddle,
-    chunk_loading::{ChunkLoader, MAX_DATA_TASKS, MAX_MESH_TASKS},
+    chunk_loading::ChunkLoader,
     chunk_mesh::ChunkMesh,
-    culled_mesher, greedy_mesher,
+    constants::{ATTRIBUTE_VOXEL, CHUNK_SIZE, MAX_DATA_TASKS, MAX_MESH_TASKS},
+    greedy_mesher,
     lod::Lod,
     positions::ChunkPos,
-    rendering::{GlobalChunkMaterial, ATTRIBUTE_VOXEL},
+    rendering::GlobalChunkMaterial,
 };
-
-// const NORMALS_ARRAY: [[f32; 3]; 6] = [
-//     [-1.0, 0.0, 0.0], // Left
-//     [1.0, 0.0, 0.0],  // Right
-//     [0.0, 0.0, 1.0],  // Back
-//     [0.0, 0.0, -1.0], // Front
-//     [0.0, 1.0, 0.0],  // Up
-//     [0.0, -1.0, 0.0], // Down
-// ];
 
 pub struct WorldPlugin;
 

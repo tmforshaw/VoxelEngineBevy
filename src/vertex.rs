@@ -1,4 +1,4 @@
-use crate::{chunk_mesh::Direction, positions::VoxelPos, voxel::VoxelType};
+use crate::{positions::VoxelPos, voxel::VoxelType};
 
 #[derive(Copy, Clone, Debug)]
 pub struct Vertex {
@@ -38,7 +38,7 @@ impl Vertex {
             z: ((vertex.0 & (pos_mask << 6u32)) >> 6u32) as usize,
         };
 
-        let ao = ((vertex.0 & (three_bits_mask << 18u32)) >> 18u32) as u32;
+        let ao = (vertex.0 & (three_bits_mask << 18u32)) >> 18u32;
         let normal = ((vertex.0 & (three_bits_mask << 21u32)) >> 21u32) as usize;
 
         let voxel_type = ((vertex.0 & (eight_bits_mask << 24u32)) >> 24u32).into();
@@ -59,7 +59,7 @@ impl Vertex {
             self.pos.x as u32
                 | (self.pos.y as u32) << 6u32
                 | (self.pos.z as u32) << 12u32
-                | (self.ao as u32) << 18u32
+                | self.ao << 18u32
                 | (self.normal as u32) << 21u32
                 | (self.voxel_type as u32) << 24u32,
         )

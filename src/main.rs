@@ -14,7 +14,8 @@ use bevy_screen_diagnostics::{
     ScreenDiagnosticsPlugin, ScreenEntityDiagnosticsPlugin, ScreenFrameDiagnosticsPlugin,
 };
 
-use chunk_loading::{ChunkLoader, ChunkLoaderPlugin, CHUNK_LOAD_DISTANCE};
+use chunk_loading::{ChunkLoader, ChunkLoaderPlugin};
+use constants::{CHUNK_LOAD_DISTANCE, FLYCAM_SENSITIVITY, FLYCAM_SPEED, MAX_THREADS, MIN_THREADS};
 use rendering::{ChunkMaterial, GlobalChunkMaterial, RenderingPlugin};
 use world::WorldPlugin;
 
@@ -22,6 +23,7 @@ pub mod chunk;
 pub mod chunk_from_middle;
 pub mod chunk_loading;
 pub mod chunk_mesh;
+pub mod constants;
 pub mod culled_mesher;
 pub mod greedy_mesher;
 pub mod lod;
@@ -66,7 +68,6 @@ fn main() {
                 .set(WindowPlugin {
                     primary_window: Some(Window {
                         title: String::from("Ooga Booga Cube"),
-                        name: Some(String::from("Name of thing")),
                         present_mode: bevy::window::PresentMode::AutoNoVsync,
                         ..default()
                     }),
@@ -82,8 +83,8 @@ fn main() {
                 .set(TaskPoolPlugin {
                     task_pool_options: TaskPoolOptions {
                         async_compute: TaskPoolThreadAssignmentPolicy {
-                            min_threads: 1,
-                            max_threads: 8,
+                            min_threads: MIN_THREADS,
+                            max_threads: MAX_THREADS,
                             percent: 0.75,
                         },
                         ..default()
@@ -92,7 +93,7 @@ fn main() {
         )
         .add_plugins((ChunkLoaderPlugin, WorldPlugin, RenderingPlugin))
         .add_plugins(NoCameraPlayerPlugin)
-        .add_plugins(WorldInspectorPlugin::new())
+        // .add_plugins(WorldInspectorPlugin::new())
         // .add_plugins(AssetInspectorPlugin::<Mesh>::default())
         .add_plugins((
             ScreenDiagnosticsPlugin::default(),
@@ -100,8 +101,8 @@ fn main() {
             ScreenEntityDiagnosticsPlugin,
         ))
         .insert_resource(MovementSettings {
-            sensitivity: 0.00015,
-            speed: 64.0,
+            sensitivity: FLYCAM_SENSITIVITY,
+            speed: FLYCAM_SPEED,
         })
         .insert_resource(KeyBindings {
             move_descend: KeyCode::ControlLeft,

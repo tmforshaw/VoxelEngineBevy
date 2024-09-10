@@ -1,18 +1,9 @@
 use bevy::{
     prelude::*,
-    render::{
-        mesh::MeshVertexAttribute,
-        render_resource::{AsBindGroup, ShaderRef, VertexFormat},
-    },
+    render::render_resource::{AsBindGroup, ShaderRef},
 };
 
-const CHUNK_VERTEX_SHADER: &str = "shaders/chunk.wgsl";
-const CHUNK_FRAGMENT_SHADER: &str = "shaders/chunk.wgsl";
-
-// A "high" random id should be used for custom attributes to ensure consistent sorting and avoid collisions with other attributes.
-// See the MeshVertexAttribute docs for more info.
-pub const ATTRIBUTE_VOXEL: MeshVertexAttribute =
-    MeshVertexAttribute::new("Voxel", 696969696, VertexFormat::Uint32);
+use crate::constants::{ATTRIBUTE_VOXEL, CHUNK_FRAGMENT_SHADER, CHUNK_VERTEX_SHADER};
 
 pub struct RenderingPlugin;
 

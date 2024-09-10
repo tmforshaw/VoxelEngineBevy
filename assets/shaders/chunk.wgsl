@@ -47,6 +47,18 @@ var<private> block_colour: array<vec3<f32>,2> = array<vec3<f32>,2>(
 	vec3<f32>(5.0, 1.0, 3.0), // block
 );
 
+// var<private> regions: array<f32, 4> = array<f32, 4>(
+//     -10., 0. , 10., 20
+// );
+
+// var<private> region_colours: array<vec3<f32>, 5> = array<vec3<f32>, 5>(
+//     vec3<f32>(5.0,0.0,1.0),
+//     vec3<f32>(1.0,0.2,5.0),
+//     vec3<f32>(2.0,7.0,3.0),
+//     vec3<f32>(0.0,5.0,4.0),
+//     vec3<f32>(6.0,0.0,6.0)
+// );
+
 fn x_bits(bit_num: u32) -> u32 {
     return (1u << bit_num) - 1u;
 }
@@ -76,11 +88,21 @@ fn vertex(vertex: Vertex) -> VertexOut {
 
     let high = vec3<f32>(5.00, 0.2, 5.0);
     let low = vec3<f32>(1.0, 1.0, 9.0);
-
-    let noise = (out.world_pos.y) / 16.0;
-
+    let noise = (out.world_pos.y) / 32.;
     out.blend_colour = ((low * noise) + (high * (1.0-noise)));
 
+    // if world_pos.y < regions[0] {
+    //     out.blend_colour = region_colours[0];
+    // } else if world_pos.y < regions[1] {
+    //     out.blend_colour = region_colours[1];
+    // } else if world_pos.y < regions[2] {
+    //     out.blend_colour = region_colours[2];
+    // } else if world_pos.y < regions[3] {
+    //     out.blend_colour = region_colours[3];
+    // } else {
+    //     out.blend_colour = region_colours[4];
+    // }
+    
     // out.blend_colour = block_colour[block_index];
     out.instance_index = vertex.instance_index;
 
