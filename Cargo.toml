@@ -1,0 +1,21 @@
+[package]
+name = "raymarch_octree"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bevy = { version = "0.14.*", features = ["bevy_pbr", "dynamic_linking"] }
+bevy-inspector-egui = "0.25.2"
+bevy_flycam = "0.14.1"
+bevy_screen_diagnostics = "0.6.0"
+bracket-noise = "0.8.7"
+tabled = "0.17.0"
+vecfx = "0.1.6"
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
