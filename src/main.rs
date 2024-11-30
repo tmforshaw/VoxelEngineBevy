@@ -31,6 +31,7 @@ pub mod lod;
 pub mod octree;
 pub mod positions;
 pub mod rendering;
+pub mod serialise;
 pub mod vertex;
 pub mod voxel;
 pub mod world;
@@ -75,8 +76,12 @@ fn main() {
         NodeDataType::new(Color::linear_rgb(1., 1., 0.5)),
     );
 
-    // let vox = NodeDataType::new(Color::linear_rgb(1., 1., 0.));
-    println!("{:X?}", oct.depth_first());
+    oct.save_to_file("test.dat").unwrap();
+
+    println!("{:?}", oct.serialise());
+
+    let new_oct = Octree::load_from_file("test.dat").unwrap();
+    println!("{:?}", new_oct.depth_first());
 
     // App::new()
     //     .add_plugins(

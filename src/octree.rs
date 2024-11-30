@@ -1,10 +1,19 @@
+use crate::serialise::SerialNode;
+
 use bevy::prelude::*;
 use tabled::{Table, Tabled};
 
-use std::{borrow::Borrow, cell::RefCell, collections::VecDeque, rc::Rc};
+use std::{
+    borrow::Borrow,
+    cell::RefCell,
+    collections::{HashMap, VecDeque},
+    fs::File,
+    io::{Read, Write},
+    rc::Rc,
+};
 
 const EXPONENT_MAX_CHILDREN: u32 = 3;
-const MAX_CHILDREN: usize = 2_usize.pow(EXPONENT_MAX_CHILDREN);
+pub const MAX_CHILDREN: usize = 2_usize.pow(EXPONENT_MAX_CHILDREN);
 
 // Generate log_2(MAX_CHILDREN) 1's, in the least significant bits of this mask
 const INDEX_MASK: usize =
@@ -15,7 +24,7 @@ type NodeChildArrayType = [Option<Rc<RefCell<Node>>>; MAX_CHILDREN];
 #[allow(unused)]
 #[derive(Debug, Copy, Clone)]
 pub struct NodeDataType {
-    colour: Color,
+    pub colour: Color,
 }
 
 impl NodeDataType {
@@ -41,18 +50,22 @@ impl NodeDataType {
             | pack_f32(col.blue) as u32
     }
 
-    pub fn deserialise(val: u32) -> Self {
+    pub fn deserialise(val: u32) -> Option<Self> {
         fn unpack_u8(val: u8) -> f32 {
             (val as f32) / (u8::MAX as f32)
         }
 
-        // let extra_data = val >> 24;
+        let extra_data = val >> 24;
 
-        Self::new(Color::linear_rgb(
-            unpack_u8(((val >> 16) & 0xFF) as u8),
-            unpack_u8(((val >> 8) & 0xFF) as u8),
-            unpack_u8((val & 0xFF) as u8),
-        ))
+        if extra_data > 0 {
+            Some(Self::new(Color::linear_rgb(
+                unpack_u8(((val >> 16) & 0xFF) as u8),
+                unpack_u8(((val >> 8) & 0xFF) as u8),
+                unpack_u8((val & 0xFF) as u8),
+            )))
+        } else {
+            None
+        }
     }
 }
 
@@ -60,8 +73,8 @@ impl NodeDataType {
 
 #[derive(Debug, Clone)]
 pub struct Node {
-    children: NodeChildArrayType,
-    data: Option<NodeDataType>,
+    pub children: NodeChildArrayType,
+    pub data: Option<NodeDataType>,
 }
 
 impl Default for Node {
@@ -93,25 +106,19 @@ impl Node {
         self.children.clone()
     }
 
+    pub fn get_data(&self) -> Option<NodeDataType> {
+        self.data
+    }
+
     // Serialise
 
     pub fn serialise(&self) -> u32 {
-        if let Some(data) = self.data {
-            data.serialise()
-        } else {
-            (u8::MAX as u32) << 24
-        }
+        self.data
+            .map_or((u8::MAX as u32) << 24, |data| data.serialise())
     }
 
     pub fn deserialise(val: u32) -> Option<Self> {
-        if val != (u8::MAX as u32) << 24 {
-            let new_data = NodeDataType::deserialise(val);
-
-            Some(Self::new_leaf(new_data))
-        } else {
-            eprintln!("tried to deserialise empty node");
-            None
-        }
+        NodeDataType::deserialise(val).map(Self::new_leaf)
     }
 
     // Tests
@@ -128,7 +135,7 @@ impl Node {
     // Utility
 
     #[inline]
-    fn wrap_with_cell(self) -> Rc<RefCell<Self>> {
+    pub fn wrap_with_cell(self) -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(self))
     }
 }
@@ -162,6 +169,13 @@ impl Octree {
 
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn with_root(root: Rc<RefCell<Node>>) -> Self {
+        Self {
+            root,
+            ..Default::default()
+        }
     }
 
     // Boundary Tests
@@ -282,16 +296,11 @@ impl Octree {
     }
 
     #[allow(unused)]
-    fn full_traversal(&self, breadth_first: bool) -> Vec<u32> {
+    fn full_traversal(&self, breadth_first: bool) -> Vec<u128> {
         let mut stack = VecDeque::from([(0, Some(self.root.clone()))]);
         let mut node_infos = Vec::new();
 
-        let mut serialised = Vec::from([
-            Borrow::<RefCell<Node>>::borrow(&self.root)
-                .borrow()
-                .serialise(),
-            0,
-        ]);
+        let mut serialisable = Vec::from([self.root.clone()]);
 
         // Perform a breadth-first search of the tree
         while !stack.is_empty() {
@@ -319,25 +328,7 @@ impl Octree {
 
             let current_children = current_node.borrow().children.clone();
 
-            // Add the serialized node to the Vec
-            serialised.append(
-                &mut current_children
-                    .clone()
-                    .into_iter()
-                    .flatten()
-                    .map(|node| {
-                        Borrow::<RefCell<Node>>::borrow(&node)
-                            .clone()
-                            .into_inner()
-                            .serialise()
-                    })
-                    .collect::<Vec<_>>(),
-            );
-
-            // Add a seperator between nodes (If there are any children)
-            if current_children.iter().filter(|&x| x.is_some()).count() > 0 {
-                serialised.push(0);
-            }
+            serialisable.push(current);
 
             // Index the children, with enough space to fit MAX_CHILDREN for each 1 of index
             let mut indexed_children = current_children
@@ -350,20 +341,104 @@ impl Octree {
             stack.append(&mut indexed_children);
         }
 
-        // Print the table
-        println!("{}", Table::new(node_infos));
+        // // Print the table
+        // println!("{}", Table::new(node_infos));
 
-        serialised
+        // Generate a map between indices and pointers
+        let node_map = serialisable
+            .clone()
+            .into_iter()
+            .enumerate()
+            .collect::<Vec<_>>();
+
+        // Serialise the nodes using a map between indices and pointers
+        serialisable
+            .into_iter()
+            .map(|node| SerialNode::from_node(node, node_map.clone()).serialise())
+            .collect::<Vec<_>>()
     }
 
     #[allow(unused)]
-    pub fn breadth_first(&self) -> std::vec::Vec<u32> {
+    pub fn breadth_first(&self) -> Vec<u128> {
         self.full_traversal(true)
     }
 
     #[allow(unused)]
-    pub fn depth_first(&self) -> std::vec::Vec<u32> {
+    pub fn depth_first(&self) -> Vec<u128> {
         self.full_traversal(false)
+    }
+
+    pub fn serialise(&self) -> Vec<u128> {
+        self.depth_first()
+    }
+
+    pub fn deserialise(serial: Vec<u128>) -> Self {
+        // Unpack the integers into SerialNodes
+        let serial_nodes = serial
+            .into_iter()
+            .map(SerialNode::deserialise)
+            .collect::<Vec<_>>();
+
+        // Create a list of pointers to nodes (To replace the integer pointers)
+        let mut pointers = Vec::with_capacity(serial_nodes.len());
+        for _ in 0..serial_nodes.len() {
+            pointers.push(Some(Node::new_branch().wrap_with_cell()));
+        }
+
+        // Create a hashmap between integer indices and the pointers to nodes (Adding an entry for a None type)
+        let mut map = pointers
+            .clone()
+            .into_iter()
+            .enumerate()
+            .collect::<HashMap<usize, Option<Rc<RefCell<Node>>>>>();
+        map.insert(usize::MAX & 0xFFF, None);
+
+        // Convert the SerialNode types into Node types
+        let nodes = serial_nodes
+            .iter()
+            .zip(pointers)
+            .map(|(node, node_ptr)| node.to_node(node_ptr.unwrap(), map.clone()))
+            .collect::<Vec<_>>();
+
+        // Create an octree with the new root node
+        Octree::with_root(nodes[0].clone())
+    }
+
+    pub fn save_to_file(&self, filename: &str) -> Result<(), Box<dyn std::error::Error>> {
+        let serial = self.serialise();
+
+        let bytes = serial.iter().fold(Vec::new(), |mut acc, chunk| {
+            // Split the data into bytes
+            let mut bytes = (0..12).map(|i| ((chunk >> (8 * i)) & 0xFF) as u8).collect();
+
+            acc.append(&mut bytes);
+
+            acc
+        });
+
+        // Create the file
+        let mut file = File::create(filename)?;
+        file.write_all(bytes.as_slice())?;
+
+        Ok(())
+    }
+
+    pub fn load_from_file(filename: &str) -> Result<Self, Box<dyn std::error::Error>> {
+        // Open the file
+        let mut file = File::open(filename)?;
+
+        // Get the contents
+        let mut contents = Vec::new();
+        file.read_to_end(&mut contents)?;
+
+        let serial = contents.chunks(12).fold(Vec::new(), |mut acc, chunk| {
+            // Combine the bytes into 128-bit chunks
+            acc.push((0..12).fold(0, |acc, i| acc | (chunk[i] as u128) << (8 * i)));
+
+            acc
+        });
+
+        Ok(Self::deserialise(serial))
     }
 
     // Utility Functions
