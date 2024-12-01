@@ -29,7 +29,6 @@ pub mod culled_mesher;
 pub mod greedy_mesher;
 pub mod lod;
 pub mod octree;
-pub mod octree_mesher;
 pub mod positions;
 pub mod rendering;
 pub mod serialise;
