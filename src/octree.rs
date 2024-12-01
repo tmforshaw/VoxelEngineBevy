@@ -447,25 +447,61 @@ impl Octree {
 
     // Display Functions
 
-    pub fn get_octant_mesh(line_length: f32, line_radius: f32, centre: Vec3) -> Mesh {
-        let line_mesh = Mesh::from(Capsule3d::new(line_radius, line_length));
-
+    pub fn get_node_mesh(
+        line_length: f32,
+        line_radius: f32,
+        centre: Vec3,
+        node_index: u64,
+    ) -> Mesh {
         let mut positions = Vec::<[f32; 3]>::new();
         let mut uvs = Vec::<[f32; 2]>::new();
         let mut normals = Vec::<[f32; 3]>::new();
         let mut indices = Vec::<u32>::new();
 
+        // Offset the centre of the node depending on its index
+        let mut offset = Vec3::splat(0.);
+        let mut idx = node_index;
+        let mut i = 0;
+        while idx != 0 {
+            offset += (line_length / 2f32.powi(i + 1))
+                * Vec3::new(
+                    (idx & 0b1) as f32 - 0.5,
+                    ((idx >> 1) & 0b1) as f32 - 0.5,
+                    ((idx >> 2) & 0b1) as f32 - 0.5,
+                );
+
+            i += 1;
+            idx >>= 3;
+        }
+        let depth = i; // The depth of this node is the maximum of i
+
+        // A line mesh which has been scaled depending on this node's depth
+        let line_mesh = Mesh::from(Capsule3d::new(
+            line_radius / 2f32.powi(depth),
+            line_length / 2f32.powi(depth),
+        ));
+
+        // Create a line mesh for each of the cube edges
         let mut mesh;
         for axis in 0..3 {
-            for x in [-line_length / 2., line_length / 2.] {
-                for z in [-line_length / 2., line_length / 2.] {
+            for x in [
+                -line_length / 2f32.powi(depth + 1),
+                line_length / 2f32.powi(depth + 1),
+            ] {
+                for z in [
+                    -line_length / 2f32.powi(depth + 1),
+                    line_length / 2f32.powi(depth + 1),
+                ] {
+                    // Vary the axes in such a way that a cube is formed
                     let pos = match axis {
-                        0 => Vec3::new(x, 0., z),
+                        0 => Vec3::new(z, 0., x),
                         1 => Vec3::new(x, z, 0.),
                         2 => Vec3::new(0., x, z),
                         _ => unreachable!(),
-                    } - centre;
+                    } - centre
+                        - offset;
 
+                    // Which axis to rotate around depending on the axis variable
                     let rotation_axis = match axis {
                         0 => Vec3::Y,
                         1 => Vec3::X,
@@ -473,46 +509,35 @@ impl Octree {
                         _ => unreachable!(),
                     };
 
+                    // Translate and rotate the base mesh to the correct position and angle
                     let transform = Transform::from_xyz(pos.x, pos.y, pos.z)
                         .with_rotation(Quat::from_axis_angle(rotation_axis, PI / 2.));
-
                     mesh = line_mesh.clone().transformed_by(transform);
 
-                    let mesh_pos = if let Some(VertexAttributeValues::Float32x3(positions)) =
-                        mesh.attribute(Mesh::ATTRIBUTE_POSITION)
-                    {
-                        positions
+                    // Get the vertex attributes from this mesh
+                    let (mesh_pos, mesh_uv, mesh_norm, mesh_indices) = if let (
+                        Some(VertexAttributeValues::Float32x3(mesh_pos)),
+                        Some(VertexAttributeValues::Float32x2(mesh_uv)),
+                        Some(VertexAttributeValues::Float32x3(mesh_norm)),
+                        Some(mesh_indices),
+                    ) = (
+                        mesh.attribute(Mesh::ATTRIBUTE_POSITION),
+                        mesh.attribute(Mesh::ATTRIBUTE_UV_0),
+                        mesh.attribute(Mesh::ATTRIBUTE_NORMAL),
+                        mesh.indices(),
+                    ) {
+                        (
+                            mesh_pos,
+                            mesh_uv,
+                            mesh_norm,
+                            mesh_indices
+                                .iter()
+                                .map(|i| i + positions.len())
+                                .collect::<Vec<usize>>(),
+                        )
                     } else {
-                        eprintln!("Could not add positions");
-                        unreachable!()
-                    };
-
-                    let mesh_uv = if let Some(VertexAttributeValues::Float32x2(uv)) =
-                        mesh.attribute(Mesh::ATTRIBUTE_UV_0)
-                    {
-                        uv
-                    } else {
-                        eprintln!("Could not add uv");
-                        unreachable!()
-                    };
-
-                    let mesh_norm = if let Some(VertexAttributeValues::Float32x3(normals)) =
-                        mesh.attribute(Mesh::ATTRIBUTE_NORMAL)
-                    {
-                        normals
-                    } else {
-                        eprintln!("Could not add normals");
-                        unreachable!()
-                    };
-
-                    let mesh_indices = if let Some(mesh_indices) = mesh.indices() {
-                        mesh_indices
-                            .iter()
-                            .map(|i| i + positions.len())
-                            .collect::<Vec<usize>>()
-                    } else {
-                        eprintln!("Could not add indices");
-                        unreachable!()
+                        eprintln!("Could not get vertex positions from mesh:\nPos:\t{pos:?}\nRot:\t{rotation_axis:?}");
+                        unreachable!();
                     };
 
                     positions.extend(mesh_pos);
@@ -540,79 +565,66 @@ impl Octree {
         mut materials: ResMut<Assets<StandardMaterial>>,
         oct: Res<Octree>,
     ) {
-        // TODO
-        // Create voxels are the correct positions
-
         let line_length = 10.0;
         let line_radius = 0.025 * line_length / 2.;
         let centre = Vec3::splat(0.);
 
-        // Spawn a new octant mesh into the world
+        let material1 = materials.add(Color::rgb_u8(124, 144, 255));
+        let material2 = materials.add(Color::rgb_u8(255, 124, 144));
+        let material3 = materials.add(Color::rgb_u8(144, 255, 124));
+
+        // Spawn a new node  mesh into the world
         commands.spawn(PbrBundle {
-            mesh: meshes.add(Self::get_octant_mesh(line_length, line_radius, centre)),
-            material: materials.add(Color::rgb_u8(124, 144, 255)),
+            mesh: meshes.add(Self::get_node_mesh(line_length, line_radius, centre, 0)),
+            material: material1.clone(),
             ..default()
         });
 
-        // Spawn a new octant mesh into the world
         commands.spawn(PbrBundle {
-            mesh: meshes.add(Self::get_octant_mesh(
-                line_length / 2.,
-                line_radius / 2.,
-                centre - Vec3::splat(line_length / 4.),
-            )),
-            material: materials.add(Color::rgb_u8(255, 124, 144)),
+            mesh: meshes.add(Self::get_node_mesh(line_length, line_radius, centre, 1)),
+            material: material2.clone(),
             ..default()
         });
 
-        // Spawn a new octant mesh into the world
         commands.spawn(PbrBundle {
-            mesh: meshes.add(Self::get_octant_mesh(
-                line_length / 4.,
-                line_radius / 4.,
-                centre + Vec3::splat(line_length / 8.) - Vec3::splat(line_length / 4.),
-            )),
-            material: materials.add(Color::rgb_u8(144, 255, 124)),
+            mesh: meshes.add(Self::get_node_mesh(line_length, line_radius, centre, 2)),
+            material: material3.clone(),
             ..default()
         });
 
-        // Spawn a new octant mesh into the world
         commands.spawn(PbrBundle {
-            mesh: meshes.add(Self::get_octant_mesh(
-                line_length / 8.,
-                line_radius / 8.,
-                centre - Vec3::splat(line_length / 16.) + Vec3::splat(line_length / 8.)
-                    - Vec3::splat(line_length / 4.),
-            )),
-            material: materials.add(Color::rgb_u8(124, 144, 255)),
+            mesh: meshes.add(Self::get_node_mesh(line_length, line_radius, centre, 3)),
+            material: material1.clone(),
             ..default()
         });
 
-        // Spawn a new octant mesh into the world
         commands.spawn(PbrBundle {
-            mesh: meshes.add(Self::get_octant_mesh(
-                line_length / 16.,
-                line_radius / 16.,
-                centre - Vec3::splat(line_length / 32.) - Vec3::splat(line_length / 16.)
-                    + Vec3::splat(line_length / 8.)
-                    - Vec3::splat(line_length / 4.),
-            )),
-            material: materials.add(Color::rgb_u8(255, 124, 144)),
+            mesh: meshes.add(Self::get_node_mesh(line_length, line_radius, centre, 4)),
+            material: material2.clone(),
             ..default()
         });
 
-        // Spawn a new octant mesh into the world
         commands.spawn(PbrBundle {
-            mesh: meshes.add(Self::get_octant_mesh(
-                line_length / 32.,
-                line_radius / 32.,
-                centre + Vec3::splat(line_length / 64.)
-                    - Vec3::splat(line_length / 32.)
-                    - Vec3::splat(line_length / 16.)
-                    + Vec3::splat(line_length / 8.)
-                    - Vec3::splat(line_length / 4.),
-            )),
-            material: materials.add(Color::rgb_u8(144, 255, 124)),
+            mesh: meshes.add(Self::get_node_mesh(line_length, line_radius, centre, 5)),
+            material: material3.clone(),
+            ..default()
+        });
+
+        commands.spawn(PbrBundle {
+            mesh: meshes.add(Self::get_node_mesh(line_length, line_radius, centre, 6)),
+            material: material1.clone(),
+            ..default()
+        });
+
+        commands.spawn(PbrBundle {
+            mesh: meshes.add(Self::get_node_mesh(line_length, line_radius, centre, 7)),
+            material: material2.clone(),
+            ..default()
+        });
+
+        commands.spawn(PbrBundle {
+            mesh: meshes.add(Self::get_node_mesh(line_length, line_radius, centre, 8)),
+            material: material3.clone(),
             ..default()
         });
     }
