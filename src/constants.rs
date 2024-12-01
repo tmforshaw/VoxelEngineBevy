@@ -34,7 +34,7 @@ pub const NOISE_HEIGHT_SCALE: f32 = 64.;
 // Flycam constants
 
 pub const FLYCAM_SENSITIVITY: f32 = 0.00015;
-pub const FLYCAM_SPEED: f32 = 256.;
+pub const FLYCAM_SPEED: f32 = 32.; // 256.;
 
 // Voxel constants
 

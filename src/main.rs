@@ -61,7 +61,7 @@ fn setup(mut commands: Commands, mut chunk_materials: ResMut<Assets<ChunkMateria
         reflectance: 0.5,
         perceptual_roughness: 0.5,
         metallic: 0.5,
-    })))
+    })));
 }
 
 fn main() {
@@ -83,52 +83,54 @@ fn main() {
     let new_oct = Octree::load_from_file("test.dat").unwrap();
     println!("{:?}", new_oct.depth_first());
 
-    // App::new()
-    //     .add_plugins(
-    //         DefaultPlugins
-    //             .set(WindowPlugin {
-    //                 primary_window: Some(Window {
-    //                     title: String::from("Ooga Booga Cube"),
-    //                     present_mode: bevy::window::PresentMode::AutoNoVsync,
-    //                     ..default()
-    //                 }),
-    //                 ..default()
-    //             })
-    //             .set(RenderPlugin {
-    //                 render_creation: RenderCreation::Automatic(WgpuSettings {
-    //                     features: WgpuFeatures::POLYGON_MODE_LINE,
-    //                     ..default()
-    //                 }),
-    //                 ..default()
-    //             })
-    //             .set(TaskPoolPlugin {
-    //                 task_pool_options: TaskPoolOptions {
-    //                     async_compute: TaskPoolThreadAssignmentPolicy {
-    //                         min_threads: MIN_THREADS,
-    //                         max_threads: MAX_THREADS,
-    //                         percent: 0.75,
-    //                     },
-    //                     ..default()
-    //                 },
-    //             }),
-    //     )
-    // .add_plugins((ChunkLoaderPlugin, WorldPlugin, RenderingPlugin))
-    // .add_plugins(NoCameraPlayerPlugin)
-    // // .add_plugins(WorldInspectorPlugin::new())
-    // // .add_plugins(AssetInspectorPlugin::<Mesh>::default())
-    // .add_plugins((
-    //     ScreenDiagnosticsPlugin::default(),
-    //     ScreenFrameDiagnosticsPlugin,
-    //     ScreenEntityDiagnosticsPlugin,
-    // ))
-    // .insert_resource(MovementSettings {
-    //     sensitivity: FLYCAM_SENSITIVITY,
-    //     speed: FLYCAM_SPEED,
-    // })
-    // .insert_resource(KeyBindings {
-    //     move_descend: KeyCode::ControlLeft,
-    //     ..Default::default()
-    // })
-    // .add_systems(Startup, setup)
-    // .run();
+    App::new()
+        .add_plugins(
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: String::from("Ooga Booga Cube"),
+                        present_mode: bevy::window::PresentMode::AutoNoVsync,
+                        ..default()
+                    }),
+                    ..default()
+                })
+                .set(RenderPlugin {
+                    render_creation: RenderCreation::Automatic(WgpuSettings {
+                        features: WgpuFeatures::POLYGON_MODE_LINE,
+                        ..default()
+                    }),
+                    ..default()
+                })
+                .set(TaskPoolPlugin {
+                    task_pool_options: TaskPoolOptions {
+                        async_compute: TaskPoolThreadAssignmentPolicy {
+                            min_threads: MIN_THREADS,
+                            max_threads: MAX_THREADS,
+                            percent: 0.75,
+                        },
+                        ..default()
+                    },
+                }),
+        )
+        // .add_plugins((ChunkLoaderPlugin, WorldPlugin))
+        .add_plugins(RenderingPlugin)
+        .add_plugins(NoCameraPlayerPlugin)
+        // .add_plugins(WorldInspectorPlugin::new())
+        // .add_plugins(AssetInspectorPlugin::<Mesh>::default())
+        .add_plugins((
+            ScreenDiagnosticsPlugin::default(),
+            ScreenFrameDiagnosticsPlugin,
+            ScreenEntityDiagnosticsPlugin,
+        ))
+        .insert_resource(MovementSettings {
+            sensitivity: FLYCAM_SENSITIVITY,
+            speed: FLYCAM_SPEED,
+        })
+        .insert_resource(KeyBindings {
+            move_descend: KeyCode::ControlLeft,
+            ..Default::default()
+        })
+        .insert_resource(oct)
+        .add_systems(Startup, (setup, Octree::draw_octree))
+        .run();
 }

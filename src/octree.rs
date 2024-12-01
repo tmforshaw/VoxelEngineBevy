@@ -1,10 +1,18 @@
 use crate::serialise::SerialNode;
 
-use bevy::prelude::*;
+use bevy::{
+    prelude::*,
+    render::{
+        mesh::Indices,
+        mesh::{PrimitiveTopology, VertexAttributeValues},
+        render_asset::RenderAssetUsages,
+    },
+};
 use tabled::Tabled;
 
 use std::{
     collections::{HashMap, VecDeque},
+    f32::consts::PI,
     fs::File,
     io::{Read, Write},
     sync::{Arc, RwLock},
@@ -149,7 +157,7 @@ struct NodeInfo {
 
 // Octree -----------------------------------------------------------------------------------------
 
-// #[derive(Resource)]
+#[derive(Resource)]
 pub struct Octree {
     root: NodeWrappedType,
     dim: usize,
@@ -437,10 +445,177 @@ impl Octree {
         Ok(Self::deserialise(serial))
     }
 
-    // TODO
-    // // Display Functions
+    // Display Functions
 
-    // pub fn show_octree(oct: Octree) {}
+    pub fn get_octant_mesh(line_length: f32, line_radius: f32, centre: Vec3) -> Mesh {
+        let line_mesh = Mesh::from(Capsule3d::new(line_radius, line_length));
+
+        let mut positions = Vec::<[f32; 3]>::new();
+        let mut uvs = Vec::<[f32; 2]>::new();
+        let mut normals = Vec::<[f32; 3]>::new();
+        let mut indices = Vec::<u32>::new();
+
+        let mut mesh;
+        for axis in 0..3 {
+            for x in [-line_length / 2., line_length / 2.] {
+                for z in [-line_length / 2., line_length / 2.] {
+                    let pos = match axis {
+                        0 => Vec3::new(x, 0., z),
+                        1 => Vec3::new(x, z, 0.),
+                        2 => Vec3::new(0., x, z),
+                        _ => unreachable!(),
+                    } - centre;
+
+                    let rotation_axis = match axis {
+                        0 => Vec3::Y,
+                        1 => Vec3::X,
+                        2 => Vec3::Z,
+                        _ => unreachable!(),
+                    };
+
+                    let transform = Transform::from_xyz(pos.x, pos.y, pos.z)
+                        .with_rotation(Quat::from_axis_angle(rotation_axis, PI / 2.));
+
+                    mesh = line_mesh.clone().transformed_by(transform);
+
+                    let mesh_pos = if let Some(VertexAttributeValues::Float32x3(positions)) =
+                        mesh.attribute(Mesh::ATTRIBUTE_POSITION)
+                    {
+                        positions
+                    } else {
+                        eprintln!("Could not add positions");
+                        unreachable!()
+                    };
+
+                    let mesh_uv = if let Some(VertexAttributeValues::Float32x2(uv)) =
+                        mesh.attribute(Mesh::ATTRIBUTE_UV_0)
+                    {
+                        uv
+                    } else {
+                        eprintln!("Could not add uv");
+                        unreachable!()
+                    };
+
+                    let mesh_norm = if let Some(VertexAttributeValues::Float32x3(normals)) =
+                        mesh.attribute(Mesh::ATTRIBUTE_NORMAL)
+                    {
+                        normals
+                    } else {
+                        eprintln!("Could not add normals");
+                        unreachable!()
+                    };
+
+                    let mesh_indices = if let Some(mesh_indices) = mesh.indices() {
+                        mesh_indices
+                            .iter()
+                            .map(|i| i + positions.len())
+                            .collect::<Vec<usize>>()
+                    } else {
+                        eprintln!("Could not add indices");
+                        unreachable!()
+                    };
+
+                    positions.extend(mesh_pos);
+                    uvs.extend(mesh_uv);
+                    normals.extend(mesh_norm);
+                    indices.extend(mesh_indices.iter().map(|&i| i as u32));
+                }
+            }
+        }
+
+        // Create a new mesh from all of these components
+        Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        )
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+        .with_inserted_indices(Indices::U32(indices))
+    }
+
+    pub fn draw_octree(
+        mut commands: Commands,
+        mut meshes: ResMut<Assets<Mesh>>,
+        mut materials: ResMut<Assets<StandardMaterial>>,
+        oct: Res<Octree>,
+    ) {
+        // TODO
+        // Create voxels are the correct positions
+
+        let line_length = 10.0;
+        let line_radius = 0.025 * line_length / 2.;
+        let centre = Vec3::splat(0.);
+
+        // Spawn a new octant mesh into the world
+        commands.spawn(PbrBundle {
+            mesh: meshes.add(Self::get_octant_mesh(line_length, line_radius, centre)),
+            material: materials.add(Color::rgb_u8(124, 144, 255)),
+            ..default()
+        });
+
+        // Spawn a new octant mesh into the world
+        commands.spawn(PbrBundle {
+            mesh: meshes.add(Self::get_octant_mesh(
+                line_length / 2.,
+                line_radius / 2.,
+                centre - Vec3::splat(line_length / 4.),
+            )),
+            material: materials.add(Color::rgb_u8(255, 124, 144)),
+            ..default()
+        });
+
+        // Spawn a new octant mesh into the world
+        commands.spawn(PbrBundle {
+            mesh: meshes.add(Self::get_octant_mesh(
+                line_length / 4.,
+                line_radius / 4.,
+                centre + Vec3::splat(line_length / 8.) - Vec3::splat(line_length / 4.),
+            )),
+            material: materials.add(Color::rgb_u8(144, 255, 124)),
+            ..default()
+        });
+
+        // Spawn a new octant mesh into the world
+        commands.spawn(PbrBundle {
+            mesh: meshes.add(Self::get_octant_mesh(
+                line_length / 8.,
+                line_radius / 8.,
+                centre - Vec3::splat(line_length / 16.) + Vec3::splat(line_length / 8.)
+                    - Vec3::splat(line_length / 4.),
+            )),
+            material: materials.add(Color::rgb_u8(124, 144, 255)),
+            ..default()
+        });
+
+        // Spawn a new octant mesh into the world
+        commands.spawn(PbrBundle {
+            mesh: meshes.add(Self::get_octant_mesh(
+                line_length / 16.,
+                line_radius / 16.,
+                centre - Vec3::splat(line_length / 32.) - Vec3::splat(line_length / 16.)
+                    + Vec3::splat(line_length / 8.)
+                    - Vec3::splat(line_length / 4.),
+            )),
+            material: materials.add(Color::rgb_u8(255, 124, 144)),
+            ..default()
+        });
+
+        // Spawn a new octant mesh into the world
+        commands.spawn(PbrBundle {
+            mesh: meshes.add(Self::get_octant_mesh(
+                line_length / 32.,
+                line_radius / 32.,
+                centre + Vec3::splat(line_length / 64.)
+                    - Vec3::splat(line_length / 32.)
+                    - Vec3::splat(line_length / 16.)
+                    + Vec3::splat(line_length / 8.)
+                    - Vec3::splat(line_length / 4.),
+            )),
+            material: materials.add(Color::rgb_u8(144, 255, 124)),
+            ..default()
+        });
+    }
 
     // Utility Functions
 
