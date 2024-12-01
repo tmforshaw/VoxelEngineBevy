@@ -1,15 +1,13 @@
 use crate::serialise::SerialNode;
 
 use bevy::prelude::*;
-use tabled::{Table, Tabled};
+use tabled::Tabled;
 
 use std::{
-    borrow::Borrow,
-    cell::RefCell,
     collections::{HashMap, VecDeque},
     fs::File,
     io::{Read, Write},
-    rc::Rc,
+    sync::{Arc, RwLock},
 };
 
 const EXPONENT_MAX_CHILDREN: u32 = 3;
@@ -19,7 +17,8 @@ pub const MAX_CHILDREN: usize = 2_usize.pow(EXPONENT_MAX_CHILDREN);
 const INDEX_MASK: usize =
     usize::MAX - ((usize::MAX >> EXPONENT_MAX_CHILDREN) << EXPONENT_MAX_CHILDREN);
 
-type NodeChildArrayType = [Option<Rc<RefCell<Node>>>; MAX_CHILDREN];
+pub type NodeWrappedType = Arc<RwLock<Node>>;
+pub type NodeChildArrayType = [Option<Arc<RwLock<Node>>>; MAX_CHILDREN];
 
 #[allow(unused)]
 #[derive(Debug, Copy, Clone)]
@@ -135,8 +134,8 @@ impl Node {
     // Utility
 
     #[inline]
-    pub fn wrap_with_cell(self) -> Rc<RefCell<Self>> {
-        Rc::new(RefCell::new(self))
+    pub fn wrap_with_cell(self) -> NodeWrappedType {
+        Arc::new(RwLock::new(self))
     }
 }
 
@@ -150,15 +149,16 @@ struct NodeInfo {
 
 // Octree -----------------------------------------------------------------------------------------
 
+// #[derive(Resource)]
 pub struct Octree {
-    root: Rc<RefCell<Node>>,
+    root: NodeWrappedType,
     dim: usize,
 }
 
 impl Default for Octree {
     fn default() -> Self {
         Self {
-            root: Rc::new(RefCell::new(Node::default())),
+            root: Node::default().wrap_with_cell(),
             dim: 0,
         }
     }
@@ -171,7 +171,7 @@ impl Octree {
         Self::default()
     }
 
-    pub fn with_root(root: Rc<RefCell<Node>>) -> Self {
+    pub fn with_root(root: NodeWrappedType) -> Self {
         Self {
             root,
             ..Default::default()
@@ -206,23 +206,21 @@ impl Octree {
         let index = self.world_pos_to_node_index(position);
 
         // Replace the node with a leaf which contains the data
-        self.traverse(index).replace(Node::new_leaf(data));
+        *self.traverse(index).write().unwrap() = Node::new_leaf(data);
     }
 
     // Grow the octree by one level
     fn grow(&mut self) {
-        let current_root = Borrow::<RefCell<Node>>::borrow(&self.root);
+        let current_root = self.root.read().unwrap().clone();
 
         // Copy the current root
         let mut new_root = Node::new_branch();
-        new_root.children = current_root.borrow().children.clone();
+        new_root.children = current_root.clone().children.clone();
 
         // Move each child within a new node, on the opposite side to where it was in the original node
         for i in 0..MAX_CHILDREN {
             if let Some(node) = new_root.children[i].take() {
-                let mut parent = if let Some(data) =
-                    Borrow::<RefCell<Node>>::borrow(&node).clone().borrow().data
-                {
+                let mut parent = if let Some(data) = node.read().unwrap().data {
                     Node::new_leaf(data)
                 } else {
                     Node::new_branch()
@@ -245,44 +243,42 @@ impl Octree {
 
     // Search/Serialise Functions
 
-    pub fn traverse(&mut self, index: u64) -> Rc<RefCell<Node>> {
+    pub fn traverse(&mut self, index: u64) -> NodeWrappedType {
         let mut node = self.root.clone();
 
         // Travel through the tree, towards the index, creating nodes when necessary
-        for i in (0..=self.dim).rev() {
+        for i in (0..self.dim).rev() {
             // Process the index from the most significant to the least significant bits
             let idx =
                 ((index >> (i * EXPONENT_MAX_CHILDREN as usize)) & (INDEX_MASK as u64)) as usize;
 
             // Borrow the node
-            let borrowed_node = Borrow::<RefCell<Node>>::borrow(&node);
+            let borrowed_node = node.read().unwrap().clone();
 
             // If this node has a child in the position we need
-            if let Some(new_node) = borrowed_node.clone().borrow().children[idx].clone() {
+            if let Some(new_node) = borrowed_node.clone().children[idx].clone() {
                 node = new_node;
             } else {
                 // Child doesn't exist, so create it
 
                 // Copy the node
                 let mut new_node = Node::new_branch();
-                new_node.children = borrowed_node.borrow().children.clone();
+                new_node.children = borrowed_node.children.clone();
 
                 // Set the correct child to a new node (Branch or Leaf depending on if the node has data)
                 new_node.children[idx].replace(
                     borrowed_node
-                        .borrow()
                         .data
                         .map_or_else(Node::new_branch, Node::new_leaf)
                         .wrap_with_cell(),
                 );
 
                 // Replace the node with the new node
-                node.replace(new_node);
+                // node.replace(new_node);
+                *node.write().unwrap() = new_node;
 
                 // Set the next node to the correct child of the current node
-                node = borrowed_node.clone().borrow().children[idx]
-                    .clone()
-                    .unwrap();
+                node = borrowed_node.clone().children[idx].clone().unwrap();
             }
 
             // Exit once the index has been processed
@@ -317,16 +313,16 @@ impl Octree {
                 continue;
             };
 
-            let current_node = Borrow::<RefCell<Node>>::borrow(&current).clone();
+            let current_node = current.read().unwrap().clone();
 
             // Add the node information to the Vec
             node_infos.push(NodeInfo {
                 index: index as u64,
                 parent: index as u64 >> EXPONENT_MAX_CHILDREN,
-                data: current_node.borrow().data,
+                data: current_node.data,
             });
 
-            let current_children = current_node.borrow().children.clone();
+            let current_children = current_node.children.clone();
 
             serialisable.push(current);
 
@@ -390,7 +386,7 @@ impl Octree {
             .clone()
             .into_iter()
             .enumerate()
-            .collect::<HashMap<usize, Option<Rc<RefCell<Node>>>>>();
+            .collect::<HashMap<usize, Option<NodeWrappedType>>>();
         map.insert(usize::MAX & 0xFFF, None);
 
         // Convert the SerialNode types into Node types
@@ -440,6 +436,11 @@ impl Octree {
 
         Ok(Self::deserialise(serial))
     }
+
+    // TODO
+    // // Display Functions
+
+    // pub fn show_octree(oct: Octree) {}
 
     // Utility Functions
 

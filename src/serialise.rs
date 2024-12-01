@@ -1,6 +1,6 @@
-use std::{borrow::Borrow, cell::RefCell, collections::HashMap, rc::Rc};
+use std::{collections::HashMap, sync::Arc};
 
-use crate::octree::{Node, NodeDataType, MAX_CHILDREN};
+use crate::octree::{Node, NodeDataType, NodeWrappedType, MAX_CHILDREN};
 
 #[derive(Debug, Clone)]
 pub struct SerialNode {
@@ -33,20 +33,27 @@ impl SerialNode {
 
     // Conversions between Node and SerialNode
 
-    pub fn from_node(node: Rc<RefCell<Node>>, map: Vec<(usize, Rc<RefCell<Node>>)>) -> Self {
-        let borrowed_node = Borrow::<RefCell<Node>>::borrow(&node);
+    pub fn from_node(node: NodeWrappedType, map: Vec<(usize, NodeWrappedType)>) -> Self {
+        let borrowed_node = node.clone();
 
-        let mut new_node = if let Some(data) = borrowed_node.borrow().get_data() {
+        let mut new_node = if let Some(data) = borrowed_node.read().unwrap().clone().get_data() {
             SerialNode::new_leaf(data)
         } else {
             SerialNode::new_branch()
         };
 
-        for (child_index, child) in borrowed_node.borrow().get_children().iter().enumerate() {
+        for (child_index, child) in borrowed_node
+            .read()
+            .unwrap()
+            .clone()
+            .get_children()
+            .iter()
+            .enumerate()
+        {
             let index = if let Some(child) = child {
                 map.iter()
                     .find_map(|(i, check_node)| {
-                        if Rc::ptr_eq(child, check_node) {
+                        if Arc::ptr_eq(child, check_node) {
                             Some(i)
                         } else {
                             None
@@ -67,9 +74,9 @@ impl SerialNode {
 
     pub fn to_node(
         &self,
-        node_ptr: Rc<RefCell<Node>>,
-        map: HashMap<usize, Option<Rc<RefCell<Node>>>>,
-    ) -> Rc<RefCell<Node>> {
+        node_ptr: NodeWrappedType,
+        map: HashMap<usize, Option<NodeWrappedType>>,
+    ) -> NodeWrappedType {
         let data = NodeDataType::deserialise(self.data);
 
         // Replace the indices with the smart pointers
@@ -87,7 +94,9 @@ impl SerialNode {
         new_node.children = children;
 
         // Replace the node
-        node_ptr.replace(new_node);
+        // *node_ptr.lock().unwrap() = new_node;
+        *node_ptr.write().unwrap() = new_node;
+
         node_ptr
     }
 
@@ -106,9 +115,9 @@ impl SerialNode {
         let data = (val >> 96) as u32;
 
         let mut children = [0; MAX_CHILDREN];
-        for i in 0..MAX_CHILDREN {
+        (0..MAX_CHILDREN).for_each(|i| {
             children[i] = ((val >> (((MAX_CHILDREN - i - 1) as u128) * 12)) & 0xFFF) as u32;
-        }
+        });
 
         let mut new_node = if (data & (1 << 31)) >> 31 > 0 {
             // Data exists if the most significant bit is 1
