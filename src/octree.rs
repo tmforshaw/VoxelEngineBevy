@@ -1,16 +1,17 @@
-use crate::serialise::SerialNode;
+use crate::{serialise::SerialNode, voxel::VoxelType};
 
 use bevy::{
     prelude::*,
     render::{
-        mesh::Indices,
-        mesh::{PrimitiveTopology, VertexAttributeValues},
+        mesh::{Indices, PrimitiveTopology, VertexAttributeValues},
         render_asset::RenderAssetUsages,
+        render_resource::encase::rts_array::Truncate,
     },
 };
-use tabled::Tabled;
+use tabled::{Table, Tabled};
 
 use std::{
+    borrow::Borrow,
     collections::{HashMap, VecDeque},
     f32::consts::PI,
     fs::File,
@@ -26,17 +27,20 @@ const INDEX_MASK: usize =
     usize::MAX - ((usize::MAX >> EXPONENT_MAX_CHILDREN) << EXPONENT_MAX_CHILDREN);
 
 pub type NodeWrappedType = Arc<RwLock<Node>>;
-pub type NodeChildArrayType = [Option<Arc<RwLock<Node>>>; MAX_CHILDREN];
+// pub type NodeArrayType = [Arc<RwLock<Node>>; MAX_CHILDREN];
+// pub type NodeOptionArrayType = Option<NodeArrayType>;
+pub type NodeOptionArrayType = [Option<Arc<RwLock<Node>>>; MAX_CHILDREN];
 
 #[allow(unused)]
 #[derive(Debug, Copy, Clone)]
 pub struct NodeDataType {
+    pub voxel_type: VoxelType,
     pub colour: Color,
 }
 
 impl NodeDataType {
-    pub fn new(colour: Color) -> Self {
-        Self { colour }
+    pub fn new(voxel_type: VoxelType, colour: Color) -> Self {
+        Self { voxel_type, colour }
     }
 
     // Serialise
@@ -49,9 +53,9 @@ impl NodeDataType {
             (u8::MAX as f32 * val) as u8
         }
 
-        let extra_data = u8::MAX;
+        let voxel_type = self.voxel_type as u8;
 
-        ((extra_data as u32) << 24)
+        ((voxel_type as u32) << 24)
             | ((pack_f32(col.red) as u32) << 16)
             | ((pack_f32(col.green) as u32) << 8)
             | pack_f32(col.blue) as u32
@@ -62,17 +66,16 @@ impl NodeDataType {
             (val as f32) / (u8::MAX as f32)
         }
 
-        let extra_data = val >> 24;
+        let voxel_type: VoxelType = (val >> 24).into();
 
-        if extra_data > 0 {
-            Some(Self::new(Color::linear_rgb(
+        Some(Self::new(
+            voxel_type,
+            Color::linear_rgb(
                 unpack_u8(((val >> 16) & 0xFF) as u8),
                 unpack_u8(((val >> 8) & 0xFF) as u8),
                 unpack_u8((val & 0xFF) as u8),
-            )))
-        } else {
-            None
-        }
+            ),
+        ))
     }
 }
 
@@ -80,7 +83,7 @@ impl NodeDataType {
 
 #[derive(Debug, Clone)]
 pub struct Node {
-    pub children: NodeChildArrayType,
+    pub children: NodeOptionArrayType,
     pub data: Option<NodeDataType>,
 }
 
@@ -100,21 +103,57 @@ impl Node {
         Self::default()
     }
 
+    pub fn new_branch_with_children<'a, I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = &'a Option<NodeWrappedType>>,
+    {
+        Self {
+            children: match iter
+                .into_iter()
+                .take(MAX_CHILDREN)
+                .cloned()
+                // .map(Option::Some)
+                .collect::<Vec<_>>()
+                .try_into()
+            {
+                Ok(children) => children,
+                Err(e) => {
+                    eprintln!("Error: Could not create children of node: {e:?}");
+                    unreachable!();
+                }
+            },
+            ..Default::default()
+        }
+    }
+
     pub fn new_leaf(data: NodeDataType) -> Self {
         Self {
+            children: [const { None }; MAX_CHILDREN],
             data: Some(data),
-            ..Default::default()
         }
     }
 
     // Getters
 
-    pub fn get_children(&self) -> NodeChildArrayType {
+    pub fn get_children(&self) -> NodeOptionArrayType {
         self.children.clone()
     }
 
     pub fn get_data(&self) -> Option<NodeDataType> {
         self.data
+    }
+
+    pub fn get_child(&self, i: usize) -> Option<NodeWrappedType> {
+        // self.children.map(|children| children[i].clone())
+        self.children[i].clone()
+    }
+
+    pub fn set_child(&mut self, node_i: usize, node: Self) {
+        if let Some(child) = self.children[node_i].clone() {
+            *child.write().unwrap() = node;
+        } else {
+            eprintln!("Tried to set child of leaf_node: {node_i}, node: {node:?}");
+        }
     }
 
     // Serialise
@@ -133,10 +172,8 @@ impl Node {
     #[allow(unused)]
     pub fn is_branch(&self) -> bool {
         // Count the children which exist
-        self.children
-            .iter()
-            .fold(0, |acc, child| if child.is_some() { acc + 1 } else { acc })
-            > 0
+        self.children.iter().fold(0, |acc, child| acc + 1) > 0
+        // self.children.is_some()
     }
 
     // Utility
@@ -147,9 +184,9 @@ impl Node {
     }
 }
 
-#[derive(Tabled, Debug)]
-struct NodeInfo {
-    index: u64,
+#[derive(Tabled, Debug, Clone)]
+pub struct NodeInfo {
+    pub index: u64,
     parent: u64,
     #[tabled(format("{:?}", self.data))]
     data: Option<NodeDataType>,
@@ -157,7 +194,7 @@ struct NodeInfo {
 
 // Octree -----------------------------------------------------------------------------------------
 
-#[derive(Resource)]
+#[derive(Resource, Clone)]
 pub struct Octree {
     root: NodeWrappedType,
     dim: usize,
@@ -214,7 +251,7 @@ impl Octree {
         let index = self.world_pos_to_node_index(position);
 
         // Replace the node with a leaf which contains the data
-        *self.traverse(index).write().unwrap() = Node::new_leaf(data);
+        *self.traverse_mut(index).write().unwrap() = Node::new_leaf(data);
     }
 
     // Grow the octree by one level
@@ -222,23 +259,26 @@ impl Octree {
         let current_root = self.root.read().unwrap().clone();
 
         // Copy the current root
-        let mut new_root = Node::new_branch();
-        new_root.children = current_root.clone().children.clone();
+        let mut new_root =
+            Node::new_branch_with_children(current_root.clone().children.clone().iter());
 
         // Move each child within a new node, on the opposite side to where it was in the original node
         for i in 0..MAX_CHILDREN {
-            if let Some(node) = new_root.children[i].take() {
-                let mut parent = if let Some(data) = node.read().unwrap().data {
+            if let Some(child) = new_root.children[i].clone() {
+                let parent = if let Some(data) = child.read().unwrap().data {
                     Node::new_leaf(data)
                 } else {
-                    Node::new_branch()
+                    Node::new_leaf(NodeDataType::new(
+                        VoxelType::Air,
+                        Color::linear_rgb(0., 0., 0.),
+                    ))
                 };
 
-                // Move the node to the opposite index within the new octant
-                parent.children[!i & INDEX_MASK] = Some(node);
-                new_root.children[i] = Some(parent.wrap_with_cell());
+                new_root.set_child(i, parent);
             } else {
+                eprintln!("Node didnt have children when expected");
                 new_root.children[i] = Some(Node::new_branch().wrap_with_cell());
+                // new_root.set_child(i, Node::new_branch());
             }
         }
 
@@ -251,7 +291,12 @@ impl Octree {
 
     // Search/Serialise Functions
 
-    pub fn traverse(&mut self, index: u64) -> NodeWrappedType {
+    pub fn traverse(&self, index: u64) -> NodeWrappedType {
+        // TODO Probably there is a better way to do this which doesnt overwrite stuff accidentally
+        self.clone().traverse_mut(index)
+    }
+
+    pub fn traverse_mut(&mut self, index: u64) -> NodeWrappedType {
         let mut node = self.root.clone();
 
         // Travel through the tree, towards the index, creating nodes when necessary
@@ -264,29 +309,27 @@ impl Octree {
             let borrowed_node = node.read().unwrap().clone();
 
             // If this node has a child in the position we need
-            if let Some(new_node) = borrowed_node.clone().children[idx].clone() {
+            if let Some(new_node) = borrowed_node.clone().get_child(idx) {
                 node = new_node;
             } else {
                 // Child doesn't exist, so create it
 
                 // Copy the node
-                let mut new_node = Node::new_branch();
-                new_node.children = borrowed_node.children.clone();
-
-                // Set the correct child to a new node (Branch or Leaf depending on if the node has data)
-                new_node.children[idx].replace(
-                    borrowed_node
-                        .data
-                        .map_or_else(Node::new_branch, Node::new_leaf)
-                        .wrap_with_cell(),
-                );
+                let new_node = if let Some(data) = borrowed_node.clone().data {
+                    Node::new_leaf(data)
+                } else {
+                    Node::new_branch_with_children(borrowed_node.children.clone().iter())
+                };
 
                 // Replace the node with the new node
-                // node.replace(new_node);
                 *node.write().unwrap() = new_node;
 
                 // Set the next node to the correct child of the current node
-                node = borrowed_node.clone().children[idx].clone().unwrap();
+                if let Some(child) = borrowed_node.clone().get_child(idx).clone() {
+                    node = child;
+                } else {
+                    break;
+                }
             }
 
             // Exit once the index has been processed
@@ -300,11 +343,15 @@ impl Octree {
     }
 
     #[allow(unused)]
-    fn full_traversal(&self, breadth_first: bool) -> Vec<u128> {
+    fn full_traversal(
+        &self,
+        breadth_first: bool,
+        node_info_buffer: Option<&mut Vec<NodeInfo>>,
+    ) -> Vec<u128> {
         let mut stack = VecDeque::from([(0, Some(self.root.clone()))]);
         let mut node_infos = Vec::new();
 
-        let mut serialisable = Vec::from([self.root.clone()]);
+        let mut serialisable = Vec::new();
 
         // Perform a breadth-first search of the tree
         while !stack.is_empty() {
@@ -315,6 +362,7 @@ impl Octree {
                 stack.pop_back()
             };
 
+            // Get the current node and its index from the popped node
             let (index, current) = if let (index, Some(current)) = popped_node.unwrap() {
                 (index, current)
             } else {
@@ -330,23 +378,27 @@ impl Octree {
                 data: current_node.data,
             });
 
-            let current_children = current_node.children.clone();
-
             serialisable.push(current);
 
             // Index the children, with enough space to fit MAX_CHILDREN for each 1 of index
-            let mut indexed_children = current_children
+            let mut indexed_children = current_node
+                .children
                 .clone()
                 .into_iter()
                 .enumerate()
                 .map(|(i, node)| (i + index * MAX_CHILDREN, node))
-                .collect::<VecDeque<_>>();
+                .collect::<VecDeque<(usize, Option<NodeWrappedType>)>>();
 
-            stack.append(&mut indexed_children);
+            stack.extend(indexed_children.clone());
         }
 
-        // // Print the table
-        // println!("{}", Table::new(node_infos));
+        // Print the table
+        println!("{}", Table::new(node_infos.clone()));
+
+        // Add the node infos to the buffer, if necessary
+        if let Some(mut node_info_buffer) = node_info_buffer {
+            node_info_buffer.extend(node_infos);
+        }
 
         // Generate a map between indices and pointers
         let node_map = serialisable
@@ -355,25 +407,28 @@ impl Octree {
             .enumerate()
             .collect::<Vec<_>>();
 
-        // Serialise the nodes using a map between indices and pointers
-        serialisable
-            .into_iter()
-            .map(|node| SerialNode::from_node(node, node_map.clone()).serialise())
-            .collect::<Vec<_>>()
+        // TODO serialise breaks the code
+        Vec::new()
+
+        // // Serialise the nodes using a map between indices and pointers
+        // serialisable
+        //     .into_iter()
+        //     .map(|node| SerialNode::from_node(node, node_map.clone()).serialise())
+        //     .collect::<Vec<_>>()
     }
 
     #[allow(unused)]
-    pub fn breadth_first(&self) -> Vec<u128> {
-        self.full_traversal(true)
+    pub fn breadth_first(&self, node_info_buffer: Option<&mut Vec<NodeInfo>>) -> Vec<u128> {
+        self.full_traversal(true, node_info_buffer)
     }
 
     #[allow(unused)]
-    pub fn depth_first(&self) -> Vec<u128> {
-        self.full_traversal(false)
+    pub fn depth_first(&self, node_info_buffer: Option<&mut Vec<NodeInfo>>) -> Vec<u128> {
+        self.full_traversal(false, node_info_buffer)
     }
 
     pub fn serialise(&self) -> Vec<u128> {
-        self.depth_first()
+        self.depth_first(None)
     }
 
     pub fn deserialise(serial: Vec<u128>) -> Self {
@@ -447,50 +502,105 @@ impl Octree {
 
     // Display Functions
 
+    pub fn trav(&self, index: u64) -> Option<(usize, NodeWrappedType)> {
+        let mut node = self.root.clone();
+
+        if index == 0 {
+            return Some((0, node));
+        }
+
+        for i in 0..=self.dim {
+            let idx =
+                ((index >> (i as u64 * EXPONENT_MAX_CHILDREN as u64)) & INDEX_MASK as u64) as usize;
+            let node_copy = node.read().unwrap().clone();
+
+            if let Some(child) = node_copy.children[idx].clone() {
+                node = child;
+            } else {
+                // This node is a leaf
+                if let Some(_data) = node_copy.data {
+                    return Some((i, node.clone()));
+                } else {
+                    eprintln!("Leaf node has no data");
+                    return None;
+                }
+            }
+        }
+
+        // // If the index has been consumed, return the node
+        // if idx == 0 {
+        //     Some((max_depth, node))
+        // } else {
+        //     None
+        // }
+
+        None
+    }
+
     pub fn get_node_mesh(
+        &self,
         line_length: f32,
         line_radius: f32,
         centre: Vec3,
         node_index: u64,
     ) -> Mesh {
+        let mut offset = Vec3::splat(0.);
+
+        let mut max_depth = 0; // The depth of this node is the maximum of i
+        if let Some((depth, node)) = self.trav(node_index).clone() {
+            max_depth = depth as i32;
+
+            let mut idx = node_index;
+            for i in 0..max_depth {
+                println!("{}\t{}\t{}", idx & 0b111, idx, (idx >> 3) & 0b111);
+
+                offset += (line_length / 2f32.powi(i + 1))
+                    * Vec3::new(
+                        ((idx) & 0b1) as f32 - 0.5,
+                        ((idx >> 1) & 0b1) as f32 - 0.5,
+                        ((idx >> 2) & 0b1) as f32 - 0.5,
+                    );
+
+                idx >>= 3;
+            }
+
+            if let Some(data) = node.clone().read().unwrap().data {
+                if data.voxel_type == VoxelType::Block {
+                    return Mesh::from(Cuboid::new(
+                        line_length / 2f32.powi(max_depth),
+                        line_length / 2f32.powi(max_depth),
+                        line_length / 2f32.powi(max_depth),
+                    ))
+                    .transformed_by(Transform::from_xyz(-offset.x, -offset.y, -offset.z));
+                }
+            }
+        } else {
+            eprintln!("node doesnt exist");
+        };
+
+        offset += centre; // Offset by the centre as well
+
         let mut positions = Vec::<[f32; 3]>::new();
         let mut uvs = Vec::<[f32; 2]>::new();
         let mut normals = Vec::<[f32; 3]>::new();
         let mut indices = Vec::<u32>::new();
 
-        // Offset the centre of the node depending on its index
-        let mut offset = Vec3::splat(0.);
-        let mut idx = node_index;
-        let mut i = 0;
-        while idx != 0 {
-            offset += (line_length / 2f32.powi(i + 1))
-                * Vec3::new(
-                    (idx & 0b1) as f32 - 0.5,
-                    ((idx >> 1) & 0b1) as f32 - 0.5,
-                    ((idx >> 2) & 0b1) as f32 - 0.5,
-                );
-
-            i += 1;
-            idx >>= 3;
-        }
-        let depth = i; // The depth of this node is the maximum of i
-
         // A line mesh which has been scaled depending on this node's depth
         let line_mesh = Mesh::from(Capsule3d::new(
-            line_radius / 2f32.powi(depth),
-            line_length / 2f32.powi(depth),
+            line_radius / 2f32.powi(max_depth),
+            line_length / 2f32.powi(max_depth),
         ));
 
         // Create a line mesh for each of the cube edges
         let mut mesh;
         for axis in 0..3 {
             for x in [
-                -line_length / 2f32.powi(depth + 1),
-                line_length / 2f32.powi(depth + 1),
+                -line_length / 2f32.powi(max_depth + 1),
+                line_length / 2f32.powi(max_depth + 1),
             ] {
                 for z in [
-                    -line_length / 2f32.powi(depth + 1),
-                    line_length / 2f32.powi(depth + 1),
+                    -line_length / 2f32.powi(max_depth + 1),
+                    line_length / 2f32.powi(max_depth + 1),
                 ] {
                     // Vary the axes in such a way that a cube is formed
                     let pos = match axis {
@@ -498,8 +608,7 @@ impl Octree {
                         1 => Vec3::new(x, z, 0.),
                         2 => Vec3::new(0., x, z),
                         _ => unreachable!(),
-                    } - centre
-                        - offset;
+                    } - offset;
 
                     // Which axis to rotate around depending on the axis variable
                     let rotation_axis = match axis {
@@ -573,60 +682,76 @@ impl Octree {
         let material2 = materials.add(Color::rgb_u8(255, 124, 144));
         let material3 = materials.add(Color::rgb_u8(144, 255, 124));
 
-        // Spawn a new node  mesh into the world
-        commands.spawn(PbrBundle {
-            mesh: meshes.add(Self::get_node_mesh(line_length, line_radius, centre, 0)),
-            material: material1.clone(),
-            ..default()
-        });
+        let mut node_infos = Vec::new();
+        oct.depth_first(Some(&mut node_infos));
 
-        commands.spawn(PbrBundle {
-            mesh: meshes.add(Self::get_node_mesh(line_length, line_radius, centre, 1)),
-            material: material2.clone(),
-            ..default()
-        });
+        let indices = node_infos.iter().map(|node| node.index).collect::<Vec<_>>();
 
-        commands.spawn(PbrBundle {
-            mesh: meshes.add(Self::get_node_mesh(line_length, line_radius, centre, 2)),
-            material: material3.clone(),
-            ..default()
-        });
+        // println!("{indices:?}");
 
-        commands.spawn(PbrBundle {
-            mesh: meshes.add(Self::get_node_mesh(line_length, line_radius, centre, 3)),
-            material: material1.clone(),
-            ..default()
-        });
+        for index in indices {
+            // Spawn a new node  mesh into the world
+            commands.spawn(PbrBundle {
+                mesh: meshes.add(oct.get_node_mesh(line_length, line_radius, centre, index)),
+                material: material1.clone(),
+                ..default()
+            });
+        }
 
-        commands.spawn(PbrBundle {
-            mesh: meshes.add(Self::get_node_mesh(line_length, line_radius, centre, 4)),
-            material: material2.clone(),
-            ..default()
-        });
+        // // Spawn a new node  mesh into the world
+        // commands.spawn(PbrBundle {
+        //     mesh: meshes.add(oct.get_node_mesh(line_length, line_radius, centre, 0)),
+        //     material: material1.clone(),
+        //     ..default()
+        // });
 
-        commands.spawn(PbrBundle {
-            mesh: meshes.add(Self::get_node_mesh(line_length, line_radius, centre, 5)),
-            material: material3.clone(),
-            ..default()
-        });
+        // commands.spawn(PbrBundle {
+        //     mesh: meshes.add(oct.get_node_mesh(line_length, line_radius, centre, 1)),
+        //     material: material2.clone(),
+        //     ..default()
+        // });
 
-        commands.spawn(PbrBundle {
-            mesh: meshes.add(Self::get_node_mesh(line_length, line_radius, centre, 6)),
-            material: material1.clone(),
-            ..default()
-        });
+        // commands.spawn(PbrBundle {
+        //     mesh: meshes.add(oct.get_node_mesh(line_length, line_radius, centre, 2)),
+        //     material: material3.clone(),
+        //     ..default()
+        // });
 
-        commands.spawn(PbrBundle {
-            mesh: meshes.add(Self::get_node_mesh(line_length, line_radius, centre, 7)),
-            material: material2.clone(),
-            ..default()
-        });
+        // commands.spawn(PbrBundle {
+        //     mesh: meshes.add(oct.get_node_mesh(line_length, line_radius, centre, 3)),
+        //     material: material1.clone(),
+        //     ..default()
+        // });
 
-        commands.spawn(PbrBundle {
-            mesh: meshes.add(Self::get_node_mesh(line_length, line_radius, centre, 8)),
-            material: material3.clone(),
-            ..default()
-        });
+        // commands.spawn(PbrBundle {
+        //     mesh: meshes.add(oct.get_node_mesh(line_length, line_radius, centre, 4)),
+        //     material: material2.clone(),
+        //     ..default()
+        // });
+
+        // commands.spawn(PbrBundle {
+        //     mesh: meshes.add(oct.get_node_mesh(line_length, line_radius, centre, 5)),
+        //     material: material3.clone(),
+        //     ..default()
+        // });
+
+        // commands.spawn(PbrBundle {
+        //     mesh: meshes.add(oct.get_node_mesh(line_length, line_radius, centre, 6)),
+        //     material: material1.clone(),
+        //     ..default()
+        // });
+
+        // commands.spawn(PbrBundle {
+        //     mesh: meshes.add(oct.get_node_mesh(line_length, line_radius, centre, 7)),
+        //     material: material2.clone(),
+        //     ..default()
+        // });
+
+        // commands.spawn(PbrBundle {
+        //     mesh: meshes.add(oct.get_node_mesh(line_length, line_radius, centre, 8)),
+        //     material: material3.clone(),
+        //     ..default()
+        // });
     }
 
     // Utility Functions
@@ -659,7 +784,7 @@ impl Octree {
         ];
 
         let mut n: u64 = input as u64;
-        for i in (0..5).rev() {
+        for i in (0..=4).rev() {
             let shift = (NUM_INPUTS - 1) * (1 << i);
             n |= n << shift;
             n &= MASKS[i];

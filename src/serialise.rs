@@ -46,12 +46,13 @@ impl SerialNode {
             .read()
             .unwrap()
             .clone()
-            .get_children()
+            .children
             .iter()
             .enumerate()
         {
-            let index = if let Some(child) = child {
-                map.iter()
+            if let Some(child) = child {
+                let index = map
+                    .iter()
                     .find_map(|(i, check_node)| {
                         if Arc::ptr_eq(child, check_node) {
                             Some(i)
@@ -60,13 +61,10 @@ impl SerialNode {
                         }
                     })
                     .copied()
-                    .unwrap()
-            } else {
-                usize::MAX
-                // 0
-            };
+                    .unwrap();
 
-            new_node.children[child_index] = index as u32;
+                new_node.children[child_index] = index as u32;
+            }
         }
 
         new_node
@@ -77,27 +75,28 @@ impl SerialNode {
         node_ptr: NodeWrappedType,
         map: HashMap<usize, Option<NodeWrappedType>>,
     ) -> NodeWrappedType {
-        let data = NodeDataType::deserialise(self.data);
+        todo!()
+        // let data = NodeDataType::deserialise(self.data);
 
-        // Replace the indices with the smart pointers
-        let mut children = [const { None }; MAX_CHILDREN];
-        for (i, child_index) in self.children.into_iter().enumerate() {
-            children[i] = map[&(child_index as usize)].clone();
-        }
+        // // Replace the indices with the smart pointers
+        // let mut children = Some([const { None }; MAX_CHILDREN]);
+        // for (i, child_index) in self.children.into_iter().enumerate() {
+        //     children[i] = map[&(child_index as usize)].clone();
+        // }
 
-        // Create a new node
-        let mut new_node = if let Some(data) = data {
-            Node::new_leaf(data)
-        } else {
-            Node::new_branch()
-        };
-        new_node.children = children;
+        // // Create a new node
+        // let mut new_node = if let Some(data) = data {
+        //     Node::new_leaf(data)
+        // } else {
+        //     Node::new_branch()
+        // };
+        // new_node.children = children;
 
-        // Replace the node
-        // *node_ptr.lock().unwrap() = new_node;
-        *node_ptr.write().unwrap() = new_node;
+        // // Replace the node
+        // // *node_ptr.lock().unwrap() = new_node;
+        // *node_ptr.write().unwrap() = new_node;
 
-        node_ptr
+        // node_ptr
     }
 
     // Serialisation

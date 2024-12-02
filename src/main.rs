@@ -18,6 +18,7 @@ use chunk_loading::{ChunkLoader, ChunkLoaderPlugin};
 use constants::{CHUNK_LOAD_DISTANCE, FLYCAM_SENSITIVITY, FLYCAM_SPEED, MAX_THREADS, MIN_THREADS};
 use octree::{NodeDataType, Octree};
 use rendering::{ChunkMaterial, GlobalChunkMaterial, RenderingPlugin};
+use voxel::VoxelType;
 use world::WorldPlugin;
 
 pub mod chunk;
@@ -67,21 +68,50 @@ fn setup(mut commands: Commands, mut chunk_materials: ResMut<Assets<ChunkMateria
 fn main() {
     let mut oct = Octree::new();
 
-    oct.insert(
-        IVec3::new(0, 0, 0),
-        NodeDataType::new(Color::linear_rgb(1., 1., 0.5)),
-    );
-    oct.insert(
-        IVec3::new(0, 0, 1),
-        NodeDataType::new(Color::linear_rgb(1., 1., 0.5)),
-    );
+    // TODO adding at index 0 (position [0,0,0]) first causes data to disappear
 
-    oct.save_to_file("test.dat").unwrap();
+    for x in (0..=1).rev() {
+        for y in 0..=1 {
+            for z in 0..=1 {
+                oct.insert(
+                    IVec3::new(x, y, z),
+                    NodeDataType::new(VoxelType::Block, Color::linear_rgb(1., 1., 0.5)),
+                );
+            }
+        }
+    }
 
-    println!("{:?}", oct.serialise());
+    // oct.insert(
+    //     IVec3::new(0, 2, 0),
+    //     NodeDataType::new(VoxelType::Block, Color::linear_rgb(0., 0., 0.)),
+    // );
+    // oct.insert(
+    //     IVec3::new(1, 0, 0),
+    //     NodeDataType::new(VoxelType::Block, Color::linear_rgb(0., 0., 0.)),
+    // );
+    // oct.insert(
+    //     IVec3::new(0, 0, 1),
+    //     NodeDataType::new(VoxelType::Block, Color::linear_rgb(0., 0., 0.)),
+    // );
 
-    let new_oct = Octree::load_from_file("test.dat").unwrap();
-    println!("{:?}", new_oct.depth_first());
+    // oct.insert(
+    //     IVec3::new(0, 1, 0),
+    //     NodeDataType::new(VoxelType::Block, Color::linear_rgb(0., 0., 0.)),
+    // );
+
+    // oct.insert(
+    //     IVec3::new(0, 1, 1),
+    //     NodeDataType::new(Color::linear_rgb(1., 1., 1.)),
+    // );
+
+    // println!("{:X?}", oct.depth_first(None));
+
+    // oct.save_to_file("test.dat").unwrap();
+
+    // println!("{:?}", oct.serialise());
+
+    // let new_oct = Octree::load_from_file("test.dat").unwrap();
+    // println!("{:?}", new_oct.depth_first(None));
 
     App::new()
         .add_plugins(
@@ -132,5 +162,6 @@ fn main() {
         })
         .insert_resource(oct)
         .add_systems(Startup, (setup, Octree::draw_octree))
+        // .add_systems(Startup, setup)
         .run();
 }
