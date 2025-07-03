@@ -85,6 +85,7 @@ fn main() {
     //     IVec3::new(0, 2, 0),
     //     NodeDataType::new(VoxelType::Block, Color::linear_rgb(0., 0., 0.)),
     // );
+
     // oct.insert(
     //     IVec3::new(1, 0, 0),
     //     NodeDataType::new(VoxelType::Block, Color::linear_rgb(0., 0., 0.)),
