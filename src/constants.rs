@@ -21,14 +21,14 @@ pub const CHUNK_FRAGMENT_SHADER: &str = "shaders/chunk.wgsl";
 pub const MIN_THREADS: usize = 1;
 pub const MAX_THREADS: usize = 16;
 
-pub const MAX_DATA_TASKS: usize = 64;
-pub const MAX_MESH_TASKS: usize = 64;
-pub const MAX_CHUNK_LOADS: usize = 26000;
+pub const MAX_DATA_TASKS: usize = 64 / 2;
+pub const MAX_MESH_TASKS: usize = 64 / 2;
+pub const MAX_CHUNK_LOADS: usize = 26000 / 2;
 
 // World generation constants
 
 pub const NOISE_SEED: u64 = 0;
-pub const NOISE_FREQUENCY: f32 = 0.025;
+pub const NOISE_FREQUENCY: f32 = 0.05;
 pub const NOISE_HEIGHT_SCALE: f32 = 64.;
 
 // Flycam constants
